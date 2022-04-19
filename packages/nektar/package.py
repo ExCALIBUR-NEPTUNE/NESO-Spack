@@ -15,12 +15,11 @@ class Nektar(CMakePackage):
 
     version('5.2.0', sha256='3242ac2e14dfa0193bc3141b1eac0177be27d9ba418b764449fa051ed9c3eed0')
     version('5.0.0', sha256='5c594453fbfaa433f732a55405da9bba27d4a00c32d7b9d7515767925fb4a818')
-    version('4.4.1', sha256='71cfd93d848a751ae9ae5e5ba336cee4b4827d4abcd56f6b8dc5c460ed6b738c')
 
     variant('mpi', default=True, description='Builds with mpi support')
     variant('fftw', default=True, description='Builds with fftw support')
     variant('arpack', default=True, description='Builds with arpack support')
-    variant('hdf5', default=True, description='Builds with hdf5 support')
+    variant('hdf5', default=False, description='Builds with hdf5 support')
     variant('scotch', default=False,
             description='Builds with scotch partitioning support')
 
@@ -29,7 +28,7 @@ class Nektar(CMakePackage):
 
     depends_on('blas')
     depends_on('lapack')
-    depends_on('boost@1.56.0: +iostreams')
+    depends_on('boost@1.74.0 +iostreams')
     depends_on('tinyxml', when='platform=darwin')
 
     depends_on('mpi', when='+mpi')
