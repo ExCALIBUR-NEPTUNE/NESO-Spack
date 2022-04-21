@@ -19,9 +19,9 @@ class Nektar(CMakePackage):
     variant('mpi', default=True, description='Builds with mpi support')
     variant('fftw', default=True, description='Builds with fftw support')
     variant('arpack', default=True, description='Builds with arpack support')
-    variant('tinyxml', default=False, description='Builds with external tinyxml support')
-    variant('hdf5', default=False, description='Builds with hdf5 support')
-    variant('scotch', default=False,
+    variant('tinyxml', default=True, description='Builds with external tinyxml support')
+    variant('hdf5', default=False, description='Builds with hdf5 support (conflicts with builtin?)')
+    variant('scotch', default=True,
             description='Builds with scotch partitioning support')
 
     depends_on('cmake@2.8.8:', type='build', when="~hdf5")
