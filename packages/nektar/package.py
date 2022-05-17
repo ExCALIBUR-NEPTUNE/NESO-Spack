@@ -28,21 +28,21 @@ class Nektar(CMakePackage):
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
 
-    depends_on("blas")
-    depends_on("tinyxml", when="+tinyxml")
-    depends_on("lapack")
+    depends_on("blas", type=("build", "link", "run"))
+    depends_on("tinyxml", when="+tinyxml", type=("build", "link", "run"))
+    depends_on("lapack", type=("build", "link", "run"))
     # Last version supporting C++11
     depends_on("boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic")
-    depends_on("tinyxml", when="platform=darwin")
+    depends_on("tinyxml", when="platform=darwin", type=("build", "link", "run"))
 
-    depends_on("mpi", when="+mpi")
-    depends_on("fftw@3.0: +mpi", when="+mpi+fftw")
-    depends_on("fftw@3.0: ~mpi", when="~mpi+fftw")
-    depends_on("arpack-ng +mpi", when="+arpack+mpi")
-    depends_on("arpack-ng ~mpi", when="+arpack~mpi")
-    depends_on("hdf5 +mpi +hl", when="+mpi+hdf5")
-    depends_on("scotch ~mpi ~metis", when="~mpi+scotch")
-    depends_on("scotch +mpi ~metis", when="+mpi+scotch")
+    depends_on("mpi", when="+mpi", type=("build", "link", "run"))
+    depends_on("fftw@3.0: +mpi", when="+mpi+fftw", type=("build", "link", "run"))
+    depends_on("fftw@3.0: ~mpi", when="~mpi+fftw", type=("build", "link", "run"))
+    depends_on("arpack-ng +mpi", when="+arpack+mpi", type=("build", "link", "run"))
+    depends_on("arpack-ng ~mpi", when="+arpack~mpi", type=("build", "link", "run"))
+    depends_on("hdf5 +mpi +hl", when="+mpi+hdf5", type=("build", "link", "run"))
+    depends_on("scotch ~mpi ~metis", when="~mpi+scotch", type=("build", "link", "run"))
+    depends_on("scotch +mpi ~metis", when="+mpi+scotch", type=("build", "link", "run"))
 
     conflicts("+hdf5", when="~mpi", msg="Nektar's hdf5 output is for parallel builds only")
 
