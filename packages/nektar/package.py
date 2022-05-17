@@ -31,7 +31,8 @@ class Nektar(CMakePackage):
     depends_on("blas")
     depends_on("tinyxml", when="+tinyxml")
     depends_on("lapack")
-    depends_on("boost@1.74.0 +iostreams")
+    # Last version supporting C++11
+    depends_on("boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic")
     depends_on("tinyxml", when="platform=darwin")
 
     depends_on("mpi", when="+mpi")
