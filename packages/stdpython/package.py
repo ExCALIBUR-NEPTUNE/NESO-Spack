@@ -17,7 +17,7 @@ from spack.util.environment import is_system_path
 from spack.util.prefix import Prefix
 
 
-class Python(AutotoolsPackage):
+class Stdpython(AutotoolsPackage):
     """The Python programming language."""
 
     homepage = "https://www.python.org/"
@@ -850,7 +850,7 @@ for plat_specific in [True, False]:
 
     def setup_run_environment(self, env):
         env.prepend_path('CPATH', os.pathsep.join(
-            self.spec['python-sane'].headers.directories))
+            self.spec['stdpython'].headers.directories))
 
     def setup_dependent_build_environment(self, env, dependent_spec):
         """Set PYTHONPATH to include the site-packages directory for the
