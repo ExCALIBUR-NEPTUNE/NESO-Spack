@@ -174,21 +174,22 @@ class Hipsycl(CMakePackage):
     @run_after("install")
     def filter_config_file(self):
 
+        config_file_paths = filesystem.find(self.prefix, "syclcc.json")
+        if len(config_file_paths) != 1:
+            raise InstallError(
+                "installed hipSYCL must provide a unique compiler driver "
+                "configuration file, found: {0}".format(config_file_paths)
+            )
+        config_file_path = config_file_paths[0]
+        with open(config_file_path) as f:
+            config = json.load(f)
+        # 1. Fix compiler: use the real one in place of the Spack wrapper
+        config["default-cpu-cxx"] = self.compiler.cxx
+        # 2. Fix stdlib: we need to make sure cuda-enabled binaries find
+        #    the libc++.so and libc++abi.so dyn linked to the sycl
+        #    ptx backend
+
         if "llvm" in self.spec:
-            config_file_paths = filesystem.find(self.prefix, "syclcc.json")
-            if len(config_file_paths) != 1:
-                raise InstallError(
-                    "installed hipSYCL must provide a unique compiler driver "
-                    "configuration file, found: {0}".format(config_file_paths)
-                )
-            config_file_path = config_file_paths[0]
-            with open(config_file_path) as f:
-                config = json.load(f)
-            # 1. Fix compiler: use the real one in place of the Spack wrapper
-            config["default-cpu-cxx"] = self.compiler.cxx
-            # 2. Fix stdlib: we need to make sure cuda-enabled binaries find
-            #    the libc++.so and libc++abi.so dyn linked to the sycl
-            #    ptx backend
             rpaths = set()
             so_paths = filesystem.find(self.spec["llvm"].prefix, "libc++.so")
             if len(so_paths) != 1:
@@ -209,6 +210,7 @@ class Hipsycl(CMakePackage):
             config["default-cuda-link-line"] += " " + " ".join(
                 "-rpath {0}".format(p) for p in rpaths
             )
-            # Replace the installed config file
-            with open(config_file_path, "w") as f:
-                json.dump(config, f, indent=2)
+
+        # Replace the installed config file
+        with open(config_file_path, "w") as f:
+            json.dump(config, f, indent=2)
