@@ -13,7 +13,11 @@ from spack import *
 
 """
 Install nvc++ version with soemthing like
-    spack -d install -v wrs.hipsycl -cuda +nvcxx ^cuda@11.7
+
+    spack install wrs.hipsycl -cuda +nvcxx ^cuda@11.7
+
+# openmp only
+    spack install wrs.hipsycl -cuda -nvcxx
 to avoid llvm build
 """
 
@@ -168,6 +172,12 @@ class Hipsycl(CMakePackage):
                 args.append(
                     "-DWITH_CUDA_NVCXX_ONLY=ON"
                 )
+
+        if not ("llvm" in spec):
+            args += [
+                "-DWITH_ACCELERATED_CPU=OFF",
+                "-DBUILD_CLANG_PLUGIN=OFF",
+            ]
 
         return args
 
