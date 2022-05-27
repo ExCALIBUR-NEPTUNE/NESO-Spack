@@ -5,7 +5,7 @@
 
 from spack import *
 import os
-
+import shutil
 
 class Nektar(CMakePackage):
     """Nektar++: Spectral/hp Element Framework"""
@@ -70,3 +70,12 @@ class Nektar(CMakePackage):
 
     def setup_dependent_run_environment(self, env, dependent_spec):
         self.setup_run_environment(env)
+
+    def setup_build_environment(self, env):
+        pass
+
+    @run_after("install")
+    def copy_cmake_files(self):
+        src_path = os.path.join(self.build_directory, "solvers")
+        dst_path = os.path.join(self.spec.prefix, "solvers_objects")
+        shutil.copytree(src_path, dst_path)
