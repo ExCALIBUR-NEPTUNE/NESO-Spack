@@ -60,6 +60,7 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_USE_HDF5=%s" % hasfeature("+hdf5"))
         args.append("-DNEKTAR_USE_SCOTCH=%s" % hasfeature("+scotch"))
         args.append("-DNEKTAR_USE_PETSC=OFF")
+        args.append("-DNEKTAR_ERROR_ON_WARNINGS=OFF")
         return args
 
     def setup_run_environment(self, env):
