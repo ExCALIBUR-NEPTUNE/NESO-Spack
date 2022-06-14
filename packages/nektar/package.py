@@ -24,6 +24,7 @@ class Nektar(CMakePackage):
     variant("scotch", default=True, description="Builds with scotch partitioning support")
     variant("demos", default=True, description="Build demonstration codes")
     variant("solvers", default=True, description="Build example solvers")
+    variant("mkl", default=False, description="Enable MKL")
 
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
@@ -61,6 +62,7 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_USE_SCOTCH=%s" % hasfeature("+scotch"))
         args.append("-DNEKTAR_USE_PETSC=OFF")
         args.append("-DNEKTAR_ERROR_ON_WARNINGS=OFF")
+        args.append("-DNEKTAR_USE_MKL=%s" % hasfeature("+mkl"))
         return args
 
     def setup_run_environment(self, env):
