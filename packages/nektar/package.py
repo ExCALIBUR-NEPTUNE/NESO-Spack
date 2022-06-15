@@ -11,11 +11,19 @@ class Nektar(CMakePackage):
     """Nektar++: Spectral/hp Element Framework"""
 
     homepage = "https://www.nektar.info/"
-    url = "https://www.nektar.info/src/nektar++-5.2.0.tar.bz2"
+    #url = "https://www.nektar.info/src/nektar++-5.2.0.tar.bz2"
+    #version("5.1.0", sha256="f5fdb729909e4dcd42cb071f06569634fa87fe90384ba0f2f857a9e0e56b6ac5")
+    #version("5.2.0", sha256="991e2c2644bd578de15e854861cab378a32f8ba1104a90faf1aa7d46f86c3e08")
+    #version("5.0.0", sha256="5c594453fbfaa433f732a55405da9bba27d4a00c32d7b9d7515767925fb4a818")
 
-    version("5.1.0", sha256="f5fdb729909e4dcd42cb071f06569634fa87fe90384ba0f2f857a9e0e56b6ac5")
-    version("5.2.0", sha256="991e2c2644bd578de15e854861cab378a32f8ba1104a90faf1aa7d46f86c3e08")
-    version("5.0.0", sha256="5c594453fbfaa433f732a55405da9bba27d4a00c32d7b9d7515767925fb4a818")
+    git = "https://gitlab.nektar.info/nektar/nektar.git"
+    
+    # 27/05/2022
+    version("5.2.0-b36964", commit="b36964360503a1a1f7facc3bbe93668ae4474be7")
+    # 22/04/2022
+    version("5.2.0-3dbd7f", commit="3dbd7f65724bf4a611c942e1e6b692d20e80ba1e")
+    # 18/02/2022
+    version("5.1.1-8715c9", commit="8715c90f900b4f22d36881ad5e3640afa40d5e39")
 
     variant("mpi", default=True, description="Builds with mpi support")
     variant("fftw", default=True, description="Builds with fftw support")
