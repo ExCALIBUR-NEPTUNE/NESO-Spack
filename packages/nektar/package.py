@@ -89,8 +89,6 @@ class Nektar(CMakePackage):
         self.setup_run_environment(env)
 
     def setup_build_environment(self, env):
-        #if "+python" in self.spec:
-        #    self.build_targets.append("nekpy-install-user")
         pass
 
     @run_after("install")
