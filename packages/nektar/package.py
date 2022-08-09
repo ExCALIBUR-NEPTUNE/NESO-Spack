@@ -34,6 +34,7 @@ class Nektar(CMakePackage):
     variant("demos", default=True, description="Build demonstration codes")
     variant("solvers", default=True, description="Build example solvers")
     variant("mkl", default=False, description="Enable MKL")
+    variant("python", default=True, description="Enable python support")
 
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
@@ -42,7 +43,7 @@ class Nektar(CMakePackage):
     depends_on("tinyxml", when="+tinyxml", type=("build", "link", "run"))
     depends_on("lapack", type=("build", "link", "run"))
     # Last version supporting C++11
-    depends_on("boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic")
+    depends_on("boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic +python")
     depends_on("tinyxml", when="platform=darwin", type=("build", "link", "run"))
 
     depends_on("mpi", when="+mpi", type=("build", "link", "run"))
@@ -53,6 +54,7 @@ class Nektar(CMakePackage):
     depends_on("hdf5 +mpi +hl", when="+mpi+hdf5", type=("build", "link", "run"))
     depends_on("scotch ~mpi ~metis", when="~mpi+scotch", type=("build", "link", "run"))
     depends_on("scotch +mpi ~metis", when="+mpi+scotch", type=("build", "link", "run"))
+    depends_on("python@3:", when="+python", type=("build", "link", "run"))
 
     conflicts("+hdf5", when="~mpi", msg="Nektar's hdf5 output is for parallel builds only")
 
@@ -72,6 +74,9 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_USE_PETSC=OFF")
         args.append("-DNEKTAR_ERROR_ON_WARNINGS=OFF")
         args.append("-DNEKTAR_USE_MKL=%s" % hasfeature("+mkl"))
+        args.append("-DNEKTAR_BUILD_PYTHON=%s" % hasfeature("+python"))
+        args.append("-DNEKTAR_BUILD_UTILITIES=ON")
+        args.append("-DNEKTAR_USE_THREAD_SAFETY=ON")
         return args
 
     def setup_run_environment(self, env):
@@ -91,3 +96,11 @@ class Nektar(CMakePackage):
         src_path = os.path.join(self.build_directory, "solvers")
         dst_path = os.path.join(self.spec.prefix, "solvers_objects")
         shutil.copytree(src_path, dst_path)
+        if "+python" in self.spec:
+            src_path = os.path.join(self.build_directory, "NekPy")
+            dst_path = os.path.join(self.spec.prefix, "NekPy")
+            shutil.copytree(src_path, dst_path)
+            src_path = os.path.join(self.build_directory, "setup.py")
+            dst_path = os.path.join(self.spec.prefix, "setup.py")
+            shutil.copyfile(src_path, dst_path)
+
