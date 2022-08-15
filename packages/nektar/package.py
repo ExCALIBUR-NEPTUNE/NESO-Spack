@@ -7,17 +7,20 @@ from spack import *
 import os
 import shutil
 
+
 class Nektar(CMakePackage):
     """Nektar++: Spectral/hp Element Framework"""
 
     homepage = "https://www.nektar.info/"
-    #url = "https://www.nektar.info/src/nektar++-5.2.0.tar.bz2"
-    #version("5.1.0", sha256="f5fdb729909e4dcd42cb071f06569634fa87fe90384ba0f2f857a9e0e56b6ac5")
-    #version("5.2.0", sha256="991e2c2644bd578de15e854861cab378a32f8ba1104a90faf1aa7d46f86c3e08")
-    #version("5.0.0", sha256="5c594453fbfaa433f732a55405da9bba27d4a00c32d7b9d7515767925fb4a818")
+    # url = "https://www.nektar.info/src/nektar++-5.2.0.tar.bz2"
+    # version("5.1.0", sha256="f5fdb729909e4dcd42cb071f06569634fa87fe90384ba0f2f857a9e0e56b6ac5")
+    # version("5.2.0", sha256="991e2c2644bd578de15e854861cab378a32f8ba1104a90faf1aa7d46f86c3e08")
+    # version("5.0.0", sha256="5c594453fbfaa433f732a55405da9bba27d4a00c32d7b9d7515767925fb4a818")
 
     git = "https://gitlab.nektar.info/nektar/nektar.git"
-    
+
+    # 12/08/2022 - has fix for external MPI Init/Finalize
+    version("5.2.0-f1598d", commit="f1598d5e39f175acf388b90df392f76ff29d7f9d")
     # 27/05/2022
     version("5.2.0-b36964", commit="b36964360503a1a1f7facc3bbe93668ae4474be7")
     # 22/04/2022
@@ -43,7 +46,16 @@ class Nektar(CMakePackage):
     depends_on("tinyxml", when="+tinyxml", type=("build", "link", "run"))
     depends_on("lapack", type=("build", "link", "run"))
     # Last version supporting C++11
-    depends_on("boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic +python")
+    depends_on(
+        "boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic +python",
+        when="+python",
+        type=("build", "link", "run"),
+    )
+    depends_on(
+        "boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic",
+        when="~python",
+        type=("build", "link", "run"),
+    )
     depends_on("tinyxml", when="platform=darwin", type=("build", "link", "run"))
 
     depends_on("mpi", when="+mpi", type=("build", "link", "run"))
@@ -103,4 +115,3 @@ class Nektar(CMakePackage):
             src_path = os.path.join(self.build_directory, "setup.py")
             dst_path = os.path.join(self.spec.prefix, "setup.py")
             shutil.copyfile(src_path, dst_path)
-
