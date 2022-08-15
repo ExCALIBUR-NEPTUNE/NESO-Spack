@@ -51,6 +51,11 @@ class Hipsycl(CMakePackage):
         default=False,
         description="Enable CUDA backend for SYCL kernels using nvcxx",
     )
+    variant(
+        "omp_llvm",
+        default=False,
+        description="Enable accelerated OMP backend for SYCL kernels using LLVM",
+    )
 
     depends_on("cmake@3.5:", type="build")
     depends_on("boost +filesystem", when="@:0.8")
@@ -58,6 +63,7 @@ class Hipsycl(CMakePackage):
     depends_on("python@3:")
     # depends_on("llvm@8: +clang", when="~cuda")
     depends_on("llvm@9: +clang", when="+cuda")
+    depends_on("llvm@9: +clang", when="+omp_llvm")
     # LLVM PTX backend requires cuda7:10.1 (https://tinyurl.com/v82k5qq)
     depends_on("cuda@9:10.1", when="@0.8.1: +cuda")
     # hipSYCL@:0.8.0 requires cuda@9:10.0 due to a known bug
