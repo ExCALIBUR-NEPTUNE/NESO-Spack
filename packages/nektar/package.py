@@ -103,15 +103,33 @@ class Nektar(CMakePackage):
     def setup_build_environment(self, env):
         pass
 
-    @run_after("install")
-    def copy_cmake_files(self):
-        src_path = os.path.join(self.build_directory, "solvers")
-        dst_path = os.path.join(self.spec.prefix, "solvers_objects")
+    # @run_after("install")
+    # def copy_cmake_files(self):
+    #     src_path = os.path.join(self.build_directory, "solvers")
+    #     dst_path = os.path.join(self.spec.prefix, "solvers_objects")
+    #     shutil.copytree(src_path, dst_path)
+    #     if "+python" in self.spec:
+    #         src_path = os.path.join(self.build_directory, "NekPy")
+    #         dst_path = os.path.join(self.spec.prefix, "NekPy")
+    #         shutil.copytree(src_path, dst_path)
+    #         src_path = os.path.join(self.build_directory, "setup.py")
+    #         dst_path = os.path.join(self.spec.prefix, "setup.py")
+    #         shutil.copyfile(src_path, dst_path)
+
+    @property
+    def build_directory(self):
+        """Returns the directory to use when building the package
+
+        :return: directory where to build the package
+        """
+        return self.copied_build_dir
+
+    def cmake(self, spec, prefix):
+        self.copied_build_dir = os.path.join(prefix, "build_tree")
+        src_path = os.path.join(self.stage.path, self.stage.source_path)
+        dst_path = self.copied_build_dir
         shutil.copytree(src_path, dst_path)
-        if "+python" in self.spec:
-            src_path = os.path.join(self.build_directory, "NekPy")
-            dst_path = os.path.join(self.spec.prefix, "NekPy")
-            shutil.copytree(src_path, dst_path)
-            src_path = os.path.join(self.build_directory, "setup.py")
-            dst_path = os.path.join(self.spec.prefix, "setup.py")
-            shutil.copyfile(src_path, dst_path)
+        CMakePackage.cmake(self, spec, prefix)
+
+
+
