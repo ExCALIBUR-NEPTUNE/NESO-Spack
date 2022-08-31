@@ -14,10 +14,10 @@ from spack import *
 """
 Install nvc++ version with soemthing like
 
-    spack install wrs.hipsycl -cuda +nvcxx ^cuda@11.7
+    spack install neso.hipsycl -cuda +nvcxx ^cuda@11.7
 
 # openmp only
-    spack install wrs.hipsycl -cuda -nvcxx
+    spack install neso.hipsycl -cuda -nvcxx
 to avoid llvm build
 """
 
