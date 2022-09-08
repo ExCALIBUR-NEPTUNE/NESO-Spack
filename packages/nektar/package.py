@@ -19,6 +19,8 @@ class Nektar(CMakePackage):
 
     git = "https://gitlab.nektar.info/nektar/nektar.git"
 
+    # 03/09/2022
+    version("5.3.0-2e0fb8", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945")
     # 12/08/2022 - has fix for external MPI Init/Finalize
     version("5.2.0-f1598d", commit="f1598d5e39f175acf388b90df392f76ff29d7f9d")
     # 27/05/2022
