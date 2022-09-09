@@ -94,6 +94,7 @@ class Nektar(CMakePackage):
             "CMAKE_PREFIX_PATH",
             os.path.join(self.spec.prefix, os.path.join("lib64", os.path.join("nektar++", "cmake"))),
         )
+        env.append_path("PYTHONPATH", os.path.abspath(os.path.join(self.spec.prefix, "build_tree")))
 
     def setup_dependent_run_environment(self, env, dependent_spec):
         self.setup_run_environment(env)
@@ -121,6 +122,7 @@ class Nektar(CMakePackage):
 
     def cmake(self, spec, prefix):
         self.copied_build_dir = os.path.join(prefix, "build_tree")
+        assert os.path.abspath(self.copied_build_dir) == os.path.abspath(os.path.join(self.spec.prefix, "build_tree"))
         src_path = os.path.join(self.stage.path, self.stage.source_path)
         dst_path = self.copied_build_dir
         shutil.copytree(src_path, dst_path)
