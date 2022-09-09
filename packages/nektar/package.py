@@ -45,7 +45,7 @@ class Nektar(CMakePackage):
     depends_on("lapack", type=("build", "link", "run"))
     # Last version supporting C++11
     depends_on(
-        "boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic +python",
+        "boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic +python +numpy",
         when="+python",
         type=("build", "link", "run"),
     )
