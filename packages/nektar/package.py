@@ -89,17 +89,11 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_USE_THREAD_SAFETY=ON")
         return args
 
-    def setup_run_environment(self, env):
+    def setup_dependent_build_environment(self, env, dependent_spec):
         env.append_path(
             "CMAKE_PREFIX_PATH",
             os.path.join(self.spec.prefix, os.path.join("lib64", os.path.join("nektar++", "cmake"))),
         )
-
-    def setup_dependent_run_environment(self, env, dependent_spec):
-        self.setup_run_environment(env)
-
-    def setup_build_environment(self, env):
-        pass
 
     @run_after("install")
     def copy_cmake_files(self):
