@@ -84,6 +84,7 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_USE_PETSC=OFF")
         args.append("-DNEKTAR_ERROR_ON_WARNINGS=OFF")
         args.append("-DNEKTAR_USE_MKL=%s" % hasfeature("+mkl"))
+        args.append("-DNEKTAR_USE_OPENBLAS=%s" % hasfeature("^openblas"))
         args.append("-DNEKTAR_BUILD_PYTHON=%s" % hasfeature("+python"))
         args.append("-DNEKTAR_BUILD_UTILITIES=ON")
         args.append("-DNEKTAR_USE_THREAD_SAFETY=ON")
