@@ -108,3 +108,9 @@ class Nektar(CMakePackage):
             src_path = os.path.join(self.build_directory, "setup.py")
             dst_path = os.path.join(self.spec.prefix, "setup.py")
             shutil.copyfile(src_path, dst_path)
+
+    def add_files_to_view(self, view, merge_map, skip_if_exists=True):
+        super(CMakePackage, self).add_files_to_view(view, merge_map, skip_if_exists)
+        path = self.view_destination(view)
+        print(path)
+        view.link(os.path.join(path, "lib64", "nektar++"), os.path.join(path, "lib", "nektar++"))
