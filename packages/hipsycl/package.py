@@ -38,8 +38,12 @@ class Hipsycl(CMakePackage):
     version(
         "0.9.2",
         commit="49fd02499841ae884c61c738610e58c27ab51fdb",
+        submodules=True,
+        preferred=True)
+    version(
+        "0.9.3",
+        commit="51507bad524c33afe8b124804091b10fa25618dc",
         submodules=True)
-
 
     variant(
         "cuda",
