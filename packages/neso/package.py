@@ -21,6 +21,23 @@
 # ----------------------------------------------------------------------------
 
 from spack.package import *
+from spack.error import SpecError
+
+def _validate_sanitizer_variant(pkg_name, variant_name, values):
+    """Checks that the combination of sanitizer types is valid."""
+    if "none" in values and len(values) > 1:
+        raise SpecError(
+            "sanitizer variant value 'none' can not be combined with any other values."
+        )
+    if "thread" in values and ("address" in values or "leak" in values or "memory" in values):
+        raise SpecError(
+            "'thread' sanitizer can not be combined with 'address', 'leak', or 'memory' sanitizers"
+        )
+    if "memory" in values and ("address" in values or "leak" in values):
+        raise SpecError(
+            "'memory' sanitizer can not be combined with 'address' or 'leak' sanitizers"
+        )
+    
 
 class Neso(CMakePackage):
     """FIXME: Put a proper description of your package here."""
@@ -37,59 +54,38 @@ class Neso(CMakePackage):
     version('main', branch='main')
 
     variant(
-        "fft",
-        default="fftw",
-        description="Library to use for FFTs",
-        values=("fftw", "mkl"),
+        "sanitizer",
+        description="The sanitizers to compile with",
+        values=("address", "leak", "thread", "memory", "undefined_behaviour"),
+        default="none",
+        multi=True,
+        validator=_validate_sanitizer_variant,
     )
-    # FIXME: This should be a virtual package dependency, but Spack
-    # doesn't seem to realise that intel-oneapi-compilers provides it
-    # yet.
-    variant(
-        "sycl",
-        default="hipsycl",
-        description="SYCL implementation to compile with",
-        values=("hipsycl", "oneapi"),
-    )
-    # variant(
-    #     "sanitizer",
-    #     description="The sanitizers to compile with",
-    #     values=spack.variant.disjoint_sets(
-    #         ("address", "leak", "undefined_behaviour"),
-    #         ("thread", "undefined_behaviour"),
-    #         ("memory", "undefined_behaviour"),
-    #     ).with_default("none").with_error(
-    #         "'thread' and 'memory' can not be combined with each other or with "
-    #         "'address' or 'leak'"
-    #     ),
-    # )
     variant(
         "coverage", default=False, description="Enable coverage reporting for GCC/Clang"
     )
 
-    # FIXME: Use virtual SYCL package
-    depends_on("hipsycl", when="sycl=hipsycl")
-    # FIXME: the onapi packages don't seem to configure the run
-    # environment at all, meaning the computer can't find anything in
-    # Intel's non-standard places. Also, should probably treat this as
-    # a _compiler_ choice rather than a normal dependency.
-    depends_on("intel-oneapi-compilers", when="sycl=oneapi", type="build")
-    depends_on("intel-oneapi-dpl", when="sycl=oneapi")
-    depends_on("intel-oneapi-tbb", when="sycl=oneapi")
-    depends_on("fftw", when="fft=fftw")
-    depends_on("intel-oneapi-mkl", when="fft=mkl")
+    depends_on("sycl", type=("build", "link", "run"))
+    depends_on("intel-oneapi-dpl", when="^dpcpp")
+    depends_on("fftw-api")
     depends_on("nektar")
     depends_on("cmake@3.14:", type="build")
     depends_on("boost@1.78:", type="test")
 
+    conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp itself.")
+    # This should really be set in teh MKL package itself...
+    conflicts("^intel-oneapi-mkl@2022.2", when="%oneapi@:2022.1", msg="Use the same version of MKL and OneAPI compilers.")
+
+    # Should these go here? In principle these may be buildable on
+    # some systems or with some versions.
+    conflicts("^py-numpy%oneapi", msg="Requires too much RAM to build Numpy with OneAPI compilers.")
+    conflicts("^boost%oneapi", msg="Requires too much RAM to build Boost with OneAPI compilers.")
+
     def cmake_args(self):
         args = []
-        # for value in self.spec.variants['sanitizer'].value:
-        #     if value != "none":
-        #         args.append(f"-DENABLE_SANITIZER_{value.toupper()}=ON")
+        for value in self.spec.variants['sanitizer'].value:
+            if value != "none":
+                args.append(f"-DENABLE_SANITIZER_{value.toupper()}=ON")
         if "+coverage" in self.spec:
             args.append("-DENABLE_COVERAGE=ON")
-        # if "sycl=oneapi" in self.spec:
-        #     args.append(f"-DIntelDPCPP_DIR={self.spec['intel-oneapi-compilers'].prefix}/compiler/latest/linux/IntelDPCPP")
-        #     args.append(f"-DCMAKE_CXX_COMPILER={self.spec['intel-oneapi-compilers'].prefix}/compiler/latest/linux/bin/icpx")
         return args
