@@ -34,7 +34,6 @@ class Nektar(CMakePackage):
     variant("scotch", default=True, description="Builds with scotch partitioning support")
     variant("demos", default=True, description="Build demonstration codes")
     variant("solvers", default=True, description="Build example solvers")
-    variant("mkl", default=False, description="Enable MKL")
     variant("python", default=True, description="Enable python support")
 
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
@@ -81,7 +80,7 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_USE_SCOTCH=%s" % hasfeature("+scotch"))
         args.append("-DNEKTAR_USE_PETSC=OFF")
         args.append("-DNEKTAR_ERROR_ON_WARNINGS=OFF")
-        args.append("-DNEKTAR_USE_MKL=%s" % hasfeature("+mkl"))
+        args.append("-DNEKTAR_USE_MKL=%s" % hasfeature("%intel-oneapi-mkl"))
         args.append("-DNEKTAR_USE_OPENBLAS=%s" % hasfeature("^openblas"))
         args.append("-DNEKTAR_BUILD_PYTHON=%s" % hasfeature("+python"))
         args.append("-DNEKTAR_BUILD_UTILITIES=ON")

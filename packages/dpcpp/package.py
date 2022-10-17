@@ -21,7 +21,7 @@ def _decrement_version(version_tuple):
     return ".".join(map(str, version_tuple[:-1])) + "." + str(version_tuple[-1] - 1)
 
 def _restrict_to_version(version):
-    """Return a version constraint that only allos the specified version
+    """Return a version constraint that only allows the specified version.
     """
     ver = tuple(map(int, version.split(".")))
     lower = _decrement_version(ver)
@@ -32,7 +32,9 @@ def _restrict_to_version(version):
         return upper + ":"
 
 class Dpcpp(Package):
-    """Dummy package that configures the DPC++ implementation of SYCL. This involves setting some extra environment variables for the Intel oneAPI compilers."""
+    """Dummy package that configures the DPC++ implementation of
+    SYCL. This involves setting some extra environment variables for
+    the Intel oneAPI compilers."""
 
     homepage = "https://software.intel.com/content/www/us/en/develop/tools/oneapi.html"
     maintainers = ["cmacmackin"]
@@ -60,9 +62,6 @@ class Dpcpp(Package):
             "%oneapi@" + _restrict_to_version(v), when="@" + v,
             msg="DPC++ version must match that of OneAPI compilers."
         )
-
-    # for v in versions:
-    #     print(_restrict_to_version(v))
 
     # This is a dummy package for oneAPI, so conflicts with all other compilers
     # FIXME: Is there a list from somewhere I can import to guarantee

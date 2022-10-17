@@ -3,23 +3,6 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-# ----------------------------------------------------------------------------
-# If you submit this package back to Spack as a pull request,
-# please first remove this boilerplate and all FIXME comments.
-#
-# This is a template package file for Spack.  We've put "FIXME"
-# next to all the things you'll want to change. Once you've handled
-# them, you can save this file and test your package like this:
-#
-#     spack install neso
-#
-# You can edit this file again by typing:
-#
-#     spack edit neso
-#
-# See the Spack documentation for more information on packaging.
-# ----------------------------------------------------------------------------
-
 from spack.package import *
 from spack.error import SpecError
 
@@ -40,14 +23,14 @@ def _validate_sanitizer_variant(pkg_name, variant_name, values):
     
 
 class Neso(CMakePackage):
-    """FIXME: Put a proper description of your package here."""
+    """This is a test implmentation of a PIC solver for 1+1D Vlasov
+    Poisson, written in C++/DPC++. This is primarily designed to test
+    the use of multiple repos/workflows for different code
+    components."""
 
-    # FIXME: Add a proper url for your package's homepage here.
     homepage = "https://github.com/ExCALIBUR-NEPTUNE"
     git = "https://github.com/ExCALIBUR-NEPTUNE/NESO"
 
-    # FIXME: Add a list of GitHub accounts to
-    # notify when the package is updated.
     maintainers = ["jwscook", "will-saunders-ukaea", "cmacmackin"]
 
     version('working', branch='main')
@@ -56,7 +39,7 @@ class Neso(CMakePackage):
     variant(
         "sanitizer",
         description="The sanitizers to compile with",
-        values=("address", "leak", "thread", "memory", "undefined_behaviour"),
+        values=("none", "address", "leak", "thread", "memory", "undefined_behaviour"),
         default="none",
         multi=True,
         validator=_validate_sanitizer_variant,
@@ -65,27 +48,23 @@ class Neso(CMakePackage):
         "coverage", default=False, description="Enable coverage reporting for GCC/Clang"
     )
 
-    depends_on("sycl", type=("build", "link", "run"))
-    depends_on("intel-oneapi-dpl", when="^dpcpp")
-    depends_on("fftw-api")
-    depends_on("nektar")
+    # Some SYCL packages require a specific run-time environment to be set
+    depends_on("sycl", type=("build", "link"))
+    depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
+    depends_on("fftw-api", type="link")
+    depends_on("nektar", type="link")
     depends_on("cmake@3.14:", type="build")
     depends_on("boost@1.78:", type="test")
 
-    conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp itself.")
-    # This should really be set in teh MKL package itself...
+    conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
+    # This should really be set in the MKL package itself...
     conflicts("^intel-oneapi-mkl@2022.2", when="%oneapi@:2022.1", msg="Use the same version of MKL and OneAPI compilers.")
-
-    # Should these go here? In principle these may be buildable on
-    # some systems or with some versions.
-    conflicts("^py-numpy%oneapi", msg="Requires too much RAM to build Numpy with OneAPI compilers.")
-    conflicts("^boost%oneapi", msg="Requires too much RAM to build Boost with OneAPI compilers.")
 
     def cmake_args(self):
         args = []
         for value in self.spec.variants['sanitizer'].value:
             if value != "none":
-                args.append(f"-DENABLE_SANITIZER_{value.toupper()}=ON")
+                args.append(f"-DENABLE_SANITIZER_{value.upper()}=ON")
         if "+coverage" in self.spec:
             args.append("-DENABLE_COVERAGE=ON")
         return args
