@@ -12,21 +12,19 @@ class Nektar(CMakePackage):
     """Nektar++: Spectral/hp Element Framework"""
 
     homepage = "https://www.nektar.info/"
-    # url = "https://www.nektar.info/src/nektar++-5.2.0.tar.bz2"
-    # version("5.1.0", sha256="f5fdb729909e4dcd42cb071f06569634fa87fe90384ba0f2f857a9e0e56b6ac5")
-    # version("5.2.0", sha256="991e2c2644bd578de15e854861cab378a32f8ba1104a90faf1aa7d46f86c3e08")
-    # version("5.0.0", sha256="5c594453fbfaa433f732a55405da9bba27d4a00c32d7b9d7515767925fb4a818")
 
     git = "https://gitlab.nektar.info/nektar/nektar.git"
 
+    # 03/09/2022
+    version("5.3.0-2e0fb8", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945", preferred=True)
     # 12/08/2022 - has fix for external MPI Init/Finalize
     version("5.2.0-f1598d", commit="f1598d5e39f175acf388b90df392f76ff29d7f9d")
     # 27/05/2022
-    version("5.2.0-b36964", commit="b36964360503a1a1f7facc3bbe93668ae4474be7")
+    version("5.2.0-b36964", commit="b36964360503a1a1f7facc3bbe93668ae4474be7", deprecated=True)
     # 22/04/2022
-    version("5.2.0-3dbd7f", commit="3dbd7f65724bf4a611c942e1e6b692d20e80ba1e")
+    version("5.2.0-3dbd7f", commit="3dbd7f65724bf4a611c942e1e6b692d20e80ba1e", deprecated=True)
     # 18/02/2022
-    version("5.1.1-8715c9", commit="8715c90f900b4f22d36881ad5e3640afa40d5e39")
+    version("5.1.1-8715c9", commit="8715c90f900b4f22d36881ad5e3640afa40d5e39", deprecated=True)
 
     variant("mpi", default=True, description="Builds with mpi support")
     variant("fftw", default=True, description="Builds with fftw support")
@@ -95,6 +93,7 @@ class Nektar(CMakePackage):
             "CMAKE_PREFIX_PATH",
             os.path.join(self.spec.prefix, os.path.join("lib64", os.path.join("nektar++", "cmake"))),
         )
+        env.append_path("PYTHONPATH", os.path.abspath(os.path.join(self.spec.prefix, "build_tree")))
 
     def setup_dependent_run_environment(self, env, dependent_spec):
         self.setup_run_environment(env)
@@ -102,18 +101,31 @@ class Nektar(CMakePackage):
     def setup_dependent_build_environment(self, env, dependent_spec):
         self.setup_run_environment(env)
 
-    @run_after("install")
-    def copy_cmake_files(self):
-        src_path = os.path.join(self.build_directory, "solvers")
-        dst_path = os.path.join(self.spec.prefix, "solvers_objects")
+    @property
+    def build_directory(self):
+        """Returns the directory to use when building the package
+
+        :return: directory where to build the package
+        """
+        return self.copied_build_dir
+
+    @property
+    def archive_files(self):
+        """Files to archive for packages based on CMake"""
+        # Overridden as the default tries to archive the CMakeCache.txt file
+        # and emits a warning that the file is outside the build stage.
+        src_path = os.path.join(self.build_directory, "CMakeCache.txt")
+        dst_path = os.path.join(self.stage.path, "CMakeCache.txt")
+        shutil.copyfile(src_path, dst_path)
+        return [dst_path]
+
+    def cmake(self, spec, prefix):
+        self.copied_build_dir = os.path.join(prefix, "build_tree")
+        assert os.path.abspath(self.copied_build_dir) == os.path.abspath(os.path.join(self.spec.prefix, "build_tree"))
+        src_path = os.path.join(self.stage.path, self.stage.source_path)
+        dst_path = self.copied_build_dir
         shutil.copytree(src_path, dst_path)
-        if "+python" in self.spec:
-            src_path = os.path.join(self.build_directory, "NekPy")
-            dst_path = os.path.join(self.spec.prefix, "NekPy")
-            shutil.copytree(src_path, dst_path)
-            src_path = os.path.join(self.build_directory, "setup.py")
-            dst_path = os.path.join(self.spec.prefix, "setup.py")
-            shutil.copyfile(src_path, dst_path)
+        CMakePackage.cmake(self, spec, prefix)
 
     def add_files_to_view(self, view, merge_map, skip_if_exists=True):
         super(CMakePackage, self).add_files_to_view(view, merge_map, skip_if_exists)
