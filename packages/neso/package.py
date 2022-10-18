@@ -56,9 +56,10 @@ class Neso(CMakePackage):
     depends_on("cmake@3.14:", type="build")
     depends_on("boost@1.78:", type="test")
 
-    conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
+        conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     # This should really be set in the MKL package itself...
     conflicts("^intel-oneapi-mkl@2022.2", when="%oneapi@:2022.1", msg="Use the same version of MKL and OneAPI compilers.")
+    conflicts("^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers.")
 
     def cmake_args(self):
         args = []
