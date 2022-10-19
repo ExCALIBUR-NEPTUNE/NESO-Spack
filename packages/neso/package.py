@@ -54,7 +54,7 @@ class Neso(CMakePackage):
     depends_on("fftw-api", type="link")
     depends_on("nektar", type="link")
     depends_on("cmake@3.14:", type="build")
-    depends_on("boost@1.78:", type="test")
+    depends_on("boost@1.74:", type="test")
 
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     # This should really be set in the MKL package itself...
