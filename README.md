@@ -26,7 +26,7 @@ struggle to compile some dependencies like NumPy and Boost. You may
 need to specify those to be built using another compiler, such as the
 classic Intel compilers:
 ```
-spack isntall neso.nektar%oneapi ^intel-oneapi-mkl ^py-numpy%intel ^boost%intel
+spack install neso.nektar%oneapi ^intel-oneapi-mkl ^py-numpy%intel ^boost%intel
 ```
 
 For more information on using this Spack repo to develop NESO, see the
