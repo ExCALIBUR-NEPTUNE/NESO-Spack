@@ -34,36 +34,33 @@ class Nektar(CMakePackage):
     variant("scotch", default=True, description="Builds with scotch partitioning support")
     variant("demos", default=True, description="Build demonstration codes")
     variant("solvers", default=True, description="Build example solvers")
-    variant("mkl", default=False, description="Enable MKL")
     variant("python", default=True, description="Enable python support")
 
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
 
-    depends_on("blas", type=("build", "link", "run"))
-    depends_on("tinyxml", when="+tinyxml", type=("build", "link", "run"))
-    depends_on("lapack", type=("build", "link", "run"))
+    depends_on("blas")
+    depends_on("tinyxml", when="+tinyxml")
+    depends_on("lapack")
     # Last version supporting C++11
     depends_on(
-        "boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic +python +numpy",
+        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic +python +numpy",
         when="+python",
-        type=("build", "link", "run"),
     )
     depends_on(
-        "boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic",
+        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic",
         when="~python",
-        type=("build", "link", "run"),
     )
-    depends_on("tinyxml", when="platform=darwin", type=("build", "link", "run"))
+    depends_on("tinyxml", when="platform=darwin")
 
     depends_on("mpi", when="+mpi", type=("build", "link", "run"))
-    depends_on("fftw@3.0: +mpi", when="+mpi+fftw", type=("build", "link", "run"))
-    depends_on("fftw@3.0: ~mpi", when="~mpi+fftw", type=("build", "link", "run"))
-    depends_on("arpack-ng +mpi", when="+arpack+mpi", type=("build", "link", "run"))
-    depends_on("arpack-ng ~mpi", when="+arpack~mpi", type=("build", "link", "run"))
-    depends_on("hdf5 +mpi +hl", when="+mpi+hdf5", type=("build", "link", "run"))
-    depends_on("scotch ~mpi ~metis", when="~mpi+scotch", type=("build", "link", "run"))
-    depends_on("scotch +mpi ~metis", when="+mpi+scotch", type=("build", "link", "run"))
+    depends_on("fftw@3.0: +mpi", when="+mpi+fftw")
+    depends_on("fftw@3.0: ~mpi", when="~mpi+fftw")
+    depends_on("arpack-ng +mpi", when="+arpack+mpi")
+    depends_on("arpack-ng ~mpi", when="+arpack~mpi")
+    depends_on("hdf5 +mpi +hl", when="+mpi+hdf5")
+    depends_on("scotch ~mpi ~metis", when="~mpi+scotch")
+    depends_on("scotch +mpi ~metis", when="+mpi+scotch")
     depends_on("python@3:", when="+python", type=("build", "link", "run"))
 
     conflicts("+hdf5", when="~mpi", msg="Nektar's hdf5 output is for parallel builds only")
@@ -83,7 +80,8 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_USE_SCOTCH=%s" % hasfeature("+scotch"))
         args.append("-DNEKTAR_USE_PETSC=OFF")
         args.append("-DNEKTAR_ERROR_ON_WARNINGS=OFF")
-        args.append("-DNEKTAR_USE_MKL=%s" % hasfeature("+mkl"))
+        args.append("-DNEKTAR_USE_MKL=%s" % hasfeature("^intel-oneapi-mkl"))
+        args.append("-DNEKTAR_USE_OPENBLAS=%s" % hasfeature("^openblas"))
         args.append("-DNEKTAR_BUILD_PYTHON=%s" % hasfeature("+python"))
         args.append("-DNEKTAR_BUILD_UTILITIES=ON")
         args.append("-DNEKTAR_USE_THREAD_SAFETY=ON")
@@ -99,8 +97,8 @@ class Nektar(CMakePackage):
     def setup_dependent_run_environment(self, env, dependent_spec):
         self.setup_run_environment(env)
 
-    def setup_build_environment(self, env):
-        pass
+    def setup_dependent_build_environment(self, env, dependent_spec):
+        self.setup_run_environment(env)
 
     @property
     def build_directory(self):
@@ -127,3 +125,9 @@ class Nektar(CMakePackage):
         dst_path = self.copied_build_dir
         shutil.copytree(src_path, dst_path)
         CMakePackage.cmake(self, spec, prefix)
+
+    def add_files_to_view(self, view, merge_map, skip_if_exists=True):
+        super(CMakePackage, self).add_files_to_view(view, merge_map, skip_if_exists)
+        path = self.view_destination(view)
+        print(path)
+        view.link(os.path.join(path, "lib64", "nektar++"), os.path.join(path, "lib", "nektar++"))
