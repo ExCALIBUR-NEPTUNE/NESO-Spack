@@ -136,7 +136,7 @@ class Dpcpp(Package):
         for path in self._library_paths:
             #env.append_flags("__INTEL_PRE_CFLAGS", f"-Wl,-rpath,{path}")
             env.append_path("LD_LIBRARY_PATH", str(path))
-    
+
     def setup_dependent_build_environment(self, env, dependent_spec):
         self._setup_common_dependent_environment(env, dependent_spec)
         env.prepend_path(

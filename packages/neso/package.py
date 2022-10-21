@@ -3,8 +3,10 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+from os import environ
 from spack.package import *
 from spack.error import SpecError
+from warnings import warn
 
 def _validate_sanitizer_variant(pkg_name, variant_name, values):
     """Checks that the combination of sanitizer types is valid."""
@@ -68,4 +70,7 @@ class Neso(CMakePackage):
                 args.append(f"-DENABLE_SANITIZER_{value.upper()}=ON")
         if "+coverage" in self.spec:
             args.append("-DENABLE_COVERAGE=ON")
+        if 'intel' in self.spec['mpi'].name:
+            if "I_MPI_FABRICS" not in environ:
+                warn("The intel mpi specific environment variable, I_MPI_FABRICS, has not been set and an intel-MPI build will fail. If you are developing on an unmanaged-HPC machine, i.e. locally on your workstation, a sensible default `export I_MPI_FABRICS=shm`. Information can be found on the intel documentation pages https://tinyurl.com/33w8x8wp", UserWarning, stacklevel=1)
         return args
