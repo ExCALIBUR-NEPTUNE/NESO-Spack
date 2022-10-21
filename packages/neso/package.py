@@ -70,7 +70,15 @@ class Neso(CMakePackage):
                 args.append(f"-DENABLE_SANITIZER_{value.upper()}=ON")
         if "+coverage" in self.spec:
             args.append("-DENABLE_COVERAGE=ON")
-        if 'intel' in self.spec['mpi'].name:
+        if "intel" in self.spec["mpi"].name:
             if "I_MPI_FABRICS" not in environ:
-                warn("The intel mpi specific environment variable, I_MPI_FABRICS, has not been set and an intel-MPI build will fail. If you are developing on an unmanaged-HPC machine, i.e. locally on your workstation, a sensible default `export I_MPI_FABRICS=shm`. Information can be found on the intel documentation pages https://tinyurl.com/33w8x8wp", UserWarning, stacklevel=1)
+                warn("The intel mpi specific environment variable, I_MPI_FABRICS, has not been set and an intel-MPI build will fail. If you are developing on an unmanaged-HPC machine, i.e. locally on your workstation, a sensible default `export I_MPI_FABRICS=shm`. Information can be found on the intel documentation pages https://tinyurl.com/33w8x8wp.", UserWarning, stacklevel=1)
+        for depspec in  self.spec.dependencies():
+            for dep in depspec.dependents():
+                if "sycl" in dep:
+                    if "SYCL_DEVICE_FILTER" not in environ:
+                        warn("The environment variable SYCL_DEVICE_FILTER is not set and the code may not run as intended in this environment. A sensible default for running on the cpu is `export SYCL_DEVICE_FILTER=host`. For more information please see e.g. https://tinyurl.com/y37672as.", UserWarning, stacklevel=1)
+
+                    break
+
         return args
