@@ -57,6 +57,7 @@ class Neso(CMakePackage):
     depends_on("nektar", type="link")
     depends_on("cmake@3.14:", type="build")
     depends_on("boost@1.74:", type="test")
+    depends_on("googletest", type="link")
 
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     # This should really be set in the MKL package itself...
@@ -64,12 +65,13 @@ class Neso(CMakePackage):
     conflicts("^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers.")
 
     def cmake_args(self):
-        args = []
+        args = [
+            self.define("ENABLE_NESO_TESTS", self.run_tests),
+            self.define_from_variant("ENABLE_COVERAGE", "coverage"),
+        ]
         for value in self.spec.variants['sanitizer'].value:
             if value != "none":
                 args.append(f"-DENABLE_SANITIZER_{value.upper()}=ON")
-        if "+coverage" in self.spec:
-            args.append("-DENABLE_COVERAGE=ON")
         if "intel" in self.spec["mpi"].name:
             if "I_MPI_FABRICS" not in environ:
                 warn("The intel mpi specific environment variable, I_MPI_FABRICS, has not been set and an intel-MPI build will fail. If you are developing on an unmanaged-HPC machine, i.e. locally on your workstation, a sensible default `export I_MPI_FABRICS=shm`. Information can be found on the intel documentation pages https://tinyurl.com/33w8x8wp.", UserWarning, stacklevel=1)
