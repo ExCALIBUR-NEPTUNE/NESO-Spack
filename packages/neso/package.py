@@ -51,6 +51,7 @@ class Neso(CMakePackage):
     )
 
     # Some SYCL packages require a specific run-time environment to be set
+    depends_on("mpi", type=("link", "run"))
     depends_on("sycl", type=("build", "link"))
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     depends_on("fftw-api", type="link")
@@ -58,6 +59,10 @@ class Neso(CMakePackage):
     depends_on("cmake@3.14:", type="build")
     depends_on("boost@1.74:", type="test")
     depends_on("googletest", type="link")
+
+    # add the NESO-Particles dependency
+    depends_on("neso_particles +build_tests", type="build")
+    depends_on("neso_particles +build_tests ^dpcpp", type="build", when="^dpcpp")
 
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     # This should really be set in the MKL package itself...
