@@ -124,7 +124,7 @@ class Nektar(CMakePackage):
         src_path = os.path.join(self.stage.path, self.stage.source_path)
         dst_path = self.copied_build_dir
         shutil.copytree(src_path, dst_path)
-        CMakePackage.cmake(self, spec, prefix)
+        super(CMakePackage, self).cmake(spec, prefix)
 
     def add_files_to_view(self, view, merge_map, skip_if_exists=True):
         super(CMakePackage, self).add_files_to_view(view, merge_map, skip_if_exists)
