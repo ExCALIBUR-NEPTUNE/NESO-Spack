@@ -51,7 +51,7 @@ class Neso(CMakePackage):
     )
 
     # Some SYCL packages require a specific run-time environment to be set
-    depends_on("mpi", type=("link", "run"))
+    depends_on("mpi", type=("build", "link", "run"))
     depends_on("sycl", type=("build", "link"))
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     depends_on("fftw-api", type="link")
