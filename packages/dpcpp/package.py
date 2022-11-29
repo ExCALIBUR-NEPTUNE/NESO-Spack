@@ -46,10 +46,12 @@ class Dpcpp(Package):
     # TODO: Figure out how to get those versions
     # programmatically from the intel-oneapi-compilers package?
     available_versions = [
+        "2022.2.1",
         "2022.2.0",
         "2022.1.0",
         "2022.0.2",
         "2022.0.1",
+        "2021.7.1",
         "2021.4.0",
         "2021.3.0",
         "2021.2.0",
