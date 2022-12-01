@@ -69,6 +69,8 @@ class Neso(CMakePackage):
             self.define("ENABLE_NESO_TESTS", self.run_tests),
             self.define_from_variant("ENABLE_COVERAGE", "coverage"),
         ]
+        # The line below is a work around for https://github.com/spack/spack/issues/29447
+        args.append("-DENABLE_NESO_TESTS:BOOL=ON") # TODO: Fix, issue NESO#128
         for value in self.spec.variants['sanitizer'].value:
             if value != "none":
                 args.append(f"-DENABLE_SANITIZER_{value.upper()}=ON")
