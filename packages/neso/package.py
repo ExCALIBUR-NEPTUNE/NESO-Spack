@@ -65,10 +65,18 @@ class Neso(CMakePackage):
     conflicts("^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers.")
 
     def cmake_args(self):
+        # Ideally we would only build the tests when Spack is going to
+        # run them. However, Spack's testing is currently broken in
+        # environments (see
+        # https://github.com/spack/spack/issues/29447), so we we will
+        # build the tests unconditionally until that is resolved.
+        #
+        # TODO: Fix, issue NESO#128
         args = [
-            self.define("ENABLE_NESO_TESTS", self.run_tests),
+            # self.define("ENABLE_NESO_TESTS", self.run_tests),
             self.define_from_variant("ENABLE_COVERAGE", "coverage"),
         ]
+        
         for value in self.spec.variants['sanitizer'].value:
             if value != "none":
                 args.append(f"-DENABLE_SANITIZER_{value.upper()}=ON")
