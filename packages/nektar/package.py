@@ -72,18 +72,18 @@ class Nektar(CMakePackage):
             return "ON" if feature in self.spec else "OFF"
 
         args.append("-DNEKTAR_BUILD_DEMOS=%s" % hasfeature("+demos"))
-        args.append("-DNEKTAR_BUILD_SOLVERS=%s" % hasfeature("+solvers"))
-        args.append("-DNEKTAR_USE_MPI=%s" % hasfeature("+mpi"))
-        args.append("-DNEKTAR_USE_FFTW=%s" % hasfeature("+fftw"))
-        args.append("-DNEKTAR_USE_ARPACK=%s" % hasfeature("+arpack"))
-        args.append("-DNEKTAR_USE_HDF5=%s" % hasfeature("+hdf5"))
-        args.append("-DNEKTAR_USE_SCOTCH=%s" % hasfeature("+scotch"))
-        args.append("-DNEKTAR_USE_PETSC=OFF")
-        args.append("-DNEKTAR_ERROR_ON_WARNINGS=OFF")
-        args.append("-DNEKTAR_USE_MKL=%s" % hasfeature("^intel-oneapi-mkl"))
-        args.append("-DNEKTAR_USE_OPENBLAS=%s" % hasfeature("^openblas"))
         args.append("-DNEKTAR_BUILD_PYTHON=%s" % hasfeature("+python"))
+        args.append("-DNEKTAR_BUILD_SOLVERS=%s" % hasfeature("+solvers"))
         args.append("-DNEKTAR_BUILD_UTILITIES=ON")
+        args.append("-DNEKTAR_ERROR_ON_WARNINGS=OFF")
+        args.append("-DNEKTAR_USE_ARPACK=%s" % hasfeature("+arpack"))
+        args.append("-DNEKTAR_USE_FFTW=%s" % hasfeature("+fftw"))
+        args.append("-DNEKTAR_USE_HDF5=%s" % hasfeature("+hdf5"))
+        args.append("-DNEKTAR_USE_MKL=%s" % hasfeature("^intel-oneapi-mkl"))
+        args.append("-DNEKTAR_USE_MPI=%s" % hasfeature("+mpi"))
+        args.append("-DNEKTAR_USE_OPENBLAS=%s" % hasfeature("^openblas"))
+        args.append("-DNEKTAR_USE_PETSC=OFF")
+        args.append("-DNEKTAR_USE_SCOTCH=%s" % hasfeature("+scotch"))
         args.append("-DNEKTAR_USE_THREAD_SAFETY=ON")
         return args
 
