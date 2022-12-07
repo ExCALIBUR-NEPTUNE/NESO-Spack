@@ -127,7 +127,7 @@ class Nektar(CMakePackage):
         super(type(self), self).cmake(spec, prefix)
 
     def add_files_to_view(self, view, merge_map, skip_if_exists=True):
-        super(CMakePackage, self).add_files_to_view(view, merge_map, skip_if_exists)
+        super(type(self), self).add_files_to_view(view, merge_map, skip_if_exists)
         path = self.view_destination(view)
         print(path)
         view.link(os.path.join(path, "lib64", "nektar++"), os.path.join(path, "lib", "nektar++"))
