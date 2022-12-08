@@ -34,11 +34,11 @@ class Nektar(CMakePackage):
     variant("scotch", default=True, description="Builds with scotch partitioning support")
     variant("demos", default=False, description="Build demonstration codes")
     variant("python", default=True, description="Enable python support")
-    # Solver variants; all but CompressibleFlow default to disabled
+    # Solver variants
     variant("acoustic_solver", default=False, description="Builds a library and an executable associated with the Acoustic solver")
     variant("adr_solver", default=False, description="Builds a library and an executable associated with the ADR solver")
     variant("cardiac_solver", default=False, description="Builds a library and an executable associated with the Cardiac electrophysiology solver")
-    variant("compflow_solver", default=True, description="Builds a library and an executable associated with the CompressibleFlow solver")
+    variant("compflow_solver", default=False, description="Builds a library and an executable associated with the CompressibleFlow solver")
     variant("diff_solver", default=False, description="Builds a library and an executable associated with the Diffusion solver")
     variant("dummy_solver", default=False, description="Builds a library and an executable associated with the Dummy solver")
     variant("elasticity_solver", default=False, description="Builds a library and an executable associated with the Elasticity solver")
