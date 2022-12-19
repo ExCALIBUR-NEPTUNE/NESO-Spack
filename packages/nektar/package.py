@@ -72,8 +72,8 @@ class Nektar(CMakePackage):
     depends_on("arpack-ng +mpi", when="+arpack+mpi")
     depends_on("arpack-ng ~mpi", when="+arpack~mpi")
     depends_on("hdf5 +mpi +hl", when="+mpi+hdf5")
-    depends_on("scotch ~mpi ~metis", when="~mpi+scotch")
-    depends_on("scotch +mpi ~metis", when="+mpi+scotch")
+    depends_on("scotch@6.0.4 ~mpi ~metis", when="~mpi+scotch")
+    depends_on("scotch@6.0.4 +mpi ~metis", when="+mpi+scotch")
     depends_on("python@3:", when="+python", type=("build", "link", "run"))
 
     conflicts("+hdf5", when="~mpi", msg="Nektar's hdf5 output is for parallel builds only")
