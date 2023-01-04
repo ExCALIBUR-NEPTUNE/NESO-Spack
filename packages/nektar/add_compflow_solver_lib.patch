@@ -1,17 +1,20 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 34c7e8ad4..2607b346b 100644
+index 34c7e8ad4..8408a1a86 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -301,6 +301,8 @@ ENDIF (APPLE)
- # that allows us to detect library dependencies automatically.
- IF (NEKTAR_BUILD_LIBRARY)
+@@ -303,6 +303,11 @@ IF (NEKTAR_BUILD_LIBRARY)
      INCLUDE_DIRECTORIES(library)
-+    # List of Nektar++ libraries will be rebuilt every configuration.
-+    SET(NEKTAR++_LIBRARIES "" CACHE INTERNAL "")
  ENDIF()
  
++# Both normal libraries and solver libraries can modify NEKTAR++_LIBRARIES - reset it if we're building either
++if (NEKTAR_BUILD_LIBRARY OR NEKTAR_BUILD_SOLVERS)
++    SET(NEKTAR++_LIBRARIES "" CACHE INTERNAL "")
++ENDIF()
++
  INCLUDE_DIRECTORIES(utilities)
-@@ -310,9 +312,6 @@ INCLUDE_DIRECTORIES(solvers)
+ ADD_SUBDIRECTORY(utilities)
+ 
+@@ -310,9 +315,6 @@ INCLUDE_DIRECTORIES(solvers)
  ADD_SUBDIRECTORY(solvers)
  
  IF (NEKTAR_BUILD_LIBRARY)
@@ -22,15 +25,26 @@ index 34c7e8ad4..2607b346b 100644
      INSTALL(EXPORT Nektar++Libraries DESTINATION ${NEKTAR_CMAKE_DIR} COMPONENT dev)
  ENDIF (NEKTAR_BUILD_LIBRARY)
 diff --git a/cmake/NektarCommon.cmake b/cmake/NektarCommon.cmake
-index 01274b4fe..817b6c661 100644
+index 01274b4fe..5836744f4 100644
 --- a/cmake/NektarCommon.cmake
 +++ b/cmake/NektarCommon.cmake
-@@ -209,29 +209,33 @@ ENDMACRO()
+@@ -201,37 +201,43 @@ ENDMACRO()
+ #
+ # Arguments:
+ #   - `name`: target name to construct
+-#   - `SUMMARY`: a brief summary of the library
+ #   - `DESCRIPTION`: a more detailed description of the library
++#   - `LINK_MODE`: mode in which to link dependencies: accepts public (default) interface or private; case insensitive
++#   - `SUMMARY`: a brief summary of the library
++#   - `TARGET_SUFFIX`: Optional suffix to attach to the target name. Allows different targets to share the same (output) `name`
+ #   - `DEPENDS`: a list of components on which this target depends on
+ #   - `SOURCES`: a list of source files for this target
+ #   - `HEADERS`: a list of header files for this target. These will be
  #     automatically put into a `dev` package.
  #
  MACRO(ADD_NEKTAR_LIBRARY name)
 -    CMAKE_PARSE_ARGUMENTS(NEKLIB "" "DESCRIPTION;SUMMARY" "DEPENDS;SOURCES;HEADERS" ${ARGN})
-+    CMAKE_PARSE_ARGUMENTS(NEKLIB "" "DESCRIPTION;SUMMARY;TARGET_SUFFIX" "DEPENDS;SOURCES;HEADERS" ${ARGN})
++    CMAKE_PARSE_ARGUMENTS(NEKLIB "" "DESCRIPTION;LINK_MODE;SUMMARY;TARGET_SUFFIX" "DEPENDS;SOURCES;HEADERS" ${ARGN})
  
 -    ADD_LIBRARY(${name} ${NEKTAR_LIBRARY_TYPE} ${NEKLIB_SOURCES} ${NEKLIB_HEADERS})
 +    SET (NEKLIB_TARGET_NAME ${name}${NEKLIB_TARGET_SUFFIX})
@@ -68,17 +82,31 @@ index 01274b4fe..817b6c661 100644
      FOREACH(HEADER ${NEKLIB_HEADERS})
          STRING(REGEX MATCH "(.*)[/\\]" DIR ${HEADER})
          INSTALL(FILES ${HEADER}
-@@ -241,7 +245,7 @@ MACRO(ADD_NEKTAR_LIBRARY name)
+@@ -241,7 +247,21 @@ MACRO(ADD_NEKTAR_LIBRARY name)
  
      # If we have dependencies then link against them.
      IF(NEKLIB_DEPENDS)
 -        TARGET_LINK_LIBRARIES(${name} LINK_PUBLIC ${NEKLIB_DEPENDS})
-+        TARGET_LINK_LIBRARIES(${NEKLIB_TARGET_NAME} LINK_PUBLIC ${NEKLIB_DEPENDS})
++        IF (NEKLIB_LINK_MODE)
++            string(TOLOWER "${NEKLIB_LINK_MODE}" link_mode)
++        ELSE()
++            set(link_mode "public")
++        ENDIF()
++
++        IF(link_mode STREQUAL "private")
++            TARGET_LINK_LIBRARIES(${NEKLIB_TARGET_NAME} PRIVATE ${NEKLIB_DEPENDS})
++        ELSEIF(link_mode STREQUAL "interface")
++            TARGET_LINK_LIBRARIES(${NEKLIB_TARGET_NAME} INTERFACE ${NEKLIB_DEPENDS})
++        ELSEIF(link_mode STREQUAL "public")
++            TARGET_LINK_LIBRARIES(${NEKLIB_TARGET_NAME} LINK_PUBLIC ${NEKLIB_DEPENDS})
++        ELSE()
++            message(FATAL_ERROR "ADD_NEKTAR_LIBRARY: Unknown link mode [${NEKLIB_LINK_MODE}] for [${NEKLIB_TARGET_NAME}]")
++        ENDIF()
      ENDIF()
  ENDMACRO()
  
 diff --git a/solvers/CMakeLists.txt b/solvers/CMakeLists.txt
-index 28d0e0f76..5559f9946 100644
+index 28d0e0f76..99b1df828 100644
 --- a/solvers/CMakeLists.txt
 +++ b/solvers/CMakeLists.txt
 @@ -10,6 +10,7 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
@@ -89,7 +117,7 @@ index 28d0e0f76..5559f9946 100644
          ADD_DEPENDENCIES(${name}-obj SolverUtils)
          LIST(APPEND SOLVER_SOURCES $<TARGET_OBJECTS:${name}-obj>)
      ENDIF()
-@@ -22,6 +23,25 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
+@@ -22,6 +23,26 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
          COMPONENT ${SOLVER_COMPONENT} DEPENDS SolverUtils SOURCES ${SOLVER_SOURCES})
  ENDMACRO()
  
@@ -105,6 +133,7 @@ index 28d0e0f76..5559f9946 100644
 +    # Append "Lib" suffix to target name, otherwise it clashes with the executable (final output will still be called ${name})
 +    ADD_NEKTAR_LIBRARY(${name}
 +                       TARGET_SUFFIX Lib
++                       LINK_MODE PRIVATE
 +                       SOURCES ${SOLVERLIB_SRCS_USED}
 +                       HEADERS ${SOLVERLIB_HEADERS}
 +                       DEPENDS ${SOLVERLIB_DEPENDS}
@@ -116,7 +145,7 @@ index 28d0e0f76..5559f9946 100644
      CMAKE_PARSE_ARGUMENTS(UTIL "USELIBRARY" "COMPONENT" "SOURCES" ${ARGN})
  
 diff --git a/solvers/CompressibleFlowSolver/CMakeLists.txt b/solvers/CompressibleFlowSolver/CMakeLists.txt
-index d116f722d..90961695f 100644
+index d116f722d..9a29903eb 100644
 --- a/solvers/CompressibleFlowSolver/CMakeLists.txt
 +++ b/solvers/CompressibleFlowSolver/CMakeLists.txt
 @@ -64,6 +64,78 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
@@ -192,7 +221,7 @@ index d116f722d..90961695f 100644
 +          RiemannSolvers/HLLSolver.h
 +       )
 +
-+    # Create separate library. No need to pass source files as executables LIBRARY_SOURCES objects will be reused
++    # Create separate library. No need to pass source files, as the executable's LIBRARY_SOURCES objects will be reused
 +    ADD_SOLVER_LIBRARY(CompressibleFlowSolver HEADERS ${CompressibleFlowSolverHeaders} DEPENDS SolverUtils)
 +
      IF(NEKTAR_BUILD_UNIT_TESTS)
