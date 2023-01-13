@@ -82,13 +82,6 @@ class Nektar(CMakePackage):
 
     conflicts("+hdf5", when="~mpi", msg="Nektar's hdf5 output is for parallel builds only")
 
-    @property
-    def install_targets(self):
-        targets = ["install"]
-        if "+python" in self.spec:
-            targets.append("nekpy-install-system")
-        return targets
-
     def cmake_args(self):
         args = []
 
