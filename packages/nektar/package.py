@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+import llnl.util.filesystem as fs
 from spack import *
 import os
 import shutil
@@ -76,9 +77,17 @@ class Nektar(CMakePackage):
     depends_on("hdf5 +mpi +hl", when="+mpi+hdf5")
     depends_on("scotch ~mpi ~metis", when="~mpi+scotch")
     depends_on("scotch +mpi ~metis", when="+mpi+scotch")
-    depends_on("python@3:", when="+python", type=("build", "link", "run"))
+
+    extends("python@3:", when="+python")
 
     conflicts("+hdf5", when="~mpi", msg="Nektar's hdf5 output is for parallel builds only")
+
+    @property
+    def install_targets(self):
+        targets = ["install"]
+        if "+python" in self.spec:
+            targets.append("nekpy-install-system")
+        return targets
 
     def cmake_args(self):
         args = []
@@ -115,6 +124,13 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_USE_THREAD_SAFETY=ON")
         return args
 
+    def install(self, spec, prefix):
+        super(Nektar, self).install(spec, prefix)
+        if "+python" in spec:
+            python = which("python")
+            with fs.working_dir(self.build_directory):
+                python("setup.py", "install", "--prefix", prefix)
+    
     def setup_run_environment(self, env):
         env.append_path(
             "CMAKE_PREFIX_PATH",
@@ -131,5 +147,4 @@ class Nektar(CMakePackage):
     def add_files_to_view(self, view, merge_map, skip_if_exists=True):
         super(Nektar, self).add_files_to_view(view, merge_map, skip_if_exists)
         path = self.view_destination(view)
-        print(path)
         view.link(os.path.join(path, "lib64", "nektar++"), os.path.join(path, "lib", "nektar++"))
