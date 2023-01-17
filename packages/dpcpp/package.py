@@ -10,6 +10,12 @@ from pathlib import Path
 from llnl.util import filesystem
 from spack import *
 
+def _get_pkg_versions(pkg_name):
+    pkg_spec = spack.spec.Spec(pkg_name)
+    pkg_cls  = spack.repo.path.get_pkg_class(pkg_name)
+    pkg      = pkg_cls(pkg_spec)
+    return sorted([vkey.string for vkey in pkg.versions.keys()])
+
 def _increment_version(version_tuple):
     return ".".join(map(str, version_tuple[:-1])) + "." + str(version_tuple[-1] + 1)
 
@@ -43,19 +49,7 @@ class Dpcpp(Package):
 
     # These are the same as the available versions of OneAPI
     # compilers.
-    # TODO: Figure out how to get those versions
-    # programmatically from the intel-oneapi-compilers package?
-    available_versions = [
-        "2022.2.1",
-        "2022.2.0",
-        "2022.1.0",
-        "2022.0.2",
-        "2022.0.1",
-        "2021.4.0",
-        "2021.3.0",
-        "2021.2.0",
-        "2021.1.2",
-    ]
+    available_versions = _get_pkg_versions("intel-oneapi-compilers")
     for v in available_versions:
         version(v)
         # The version of DPC++ must be the same as that of the OneAPI compilers.
