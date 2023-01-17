@@ -16,26 +16,15 @@ def _get_pkg_versions(pkg_name):
     pkg      = pkg_cls(pkg_spec)
     return sorted([vkey.string for vkey in pkg.versions.keys()])
 
-def _increment_version(version_tuple):
-    return ".".join(map(str, version_tuple[:-1])) + "." + str(version_tuple[-1] + 1)
-
-def _decrement_version(version_tuple):
-    if len(version_tuple) == 0:
-        return None
-    if version_tuple[-1] == 0:
-        return _decrement_version(version_tuple[:-1])
-    return ".".join(map(str, version_tuple[:-1])) + "." + str(version_tuple[-1] - 1)
-
-def _restrict_to_version(version):
-    """Return a version constraint that only allows the specified version.
+def _restrict_to_version(versions,idx):
+    """Return a version constraint that excludes all but versions[idx].
     """
-    ver = tuple(map(int, version.split(".")))
-    lower = _decrement_version(ver)
-    upper = _increment_version(ver)
-    if lower:
-        return ":" + lower + "," + upper + ":"
+    if idx==0:
+        return versions[1]+":"
+    elif idx==len(versions)-1:
+        return ":"+versions[-2]
     else:
-        return upper + ":"
+        return ":"+versions[idx-1]+","+versions[idx+1]+":"
 
 class Dpcpp(Package):
     """Dummy package that configures the DPC++ implementation of
@@ -50,11 +39,11 @@ class Dpcpp(Package):
     # These are the same as the available versions of OneAPI
     # compilers.
     available_versions = _get_pkg_versions("intel-oneapi-compilers")
-    for v in available_versions:
+    for idx,v in enumerate(available_versions):
         version(v)
         # The version of DPC++ must be the same as that of the OneAPI compilers.
         conflicts(
-            "%oneapi@" + _restrict_to_version(v), when="@" + v,
+            "%oneapi@" + _restrict_to_version(available_versions,idx), when="@" + v,
             msg="DPC++ version must match that of OneAPI compilers."
         )
 
