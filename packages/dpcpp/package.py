@@ -10,23 +10,25 @@ from pathlib import Path
 from llnl.util import filesystem
 from spack import *
 
+
 def _get_pkg_versions(pkg_name):
     """Get a list of 'safe' (already checksummed) available versions of a Spack package
     Equivalent to 'spack versions <pkg_name>' on the command line"""
     pkg_spec = spack.spec.Spec(pkg_name)
-    pkg_cls  = spack.repo.path.get_pkg_class(pkg_name)
-    pkg      = pkg_cls(pkg_spec)
+    pkg_cls = spack.repo.path.get_pkg_class(pkg_name)
+    pkg = pkg_cls(pkg_spec)
     return [vkey.string for vkey in pkg.versions.keys()]
 
-def _restrict_to_version(versions,idx):
-    """Return a version constraint that excludes all but versions[idx].
-    """
-    if idx==0:
-        return ":"+versions[1]
-    elif idx==len(versions)-1:
-        return versions[-2]+":"
+
+def _restrict_to_version(versions, idx):
+    """Return a version constraint that excludes all but versions[idx]."""
+    if idx == 0:
+        return ":" + versions[1]
+    elif idx == len(versions) - 1:
+        return versions[-2] + ":"
     else:
-        return ":"+versions[idx+1]+","+versions[idx-1]+":"
+        return ":" + versions[idx + 1] + "," + versions[idx - 1] + ":"
+
 
 class Dpcpp(Package):
     """Dummy package that configures the DPC++ implementation of
@@ -41,12 +43,13 @@ class Dpcpp(Package):
     # These are the same as the available versions of OneAPI
     # compilers.
     available_versions = _get_pkg_versions("intel-oneapi-compilers")
-    for idx,v in enumerate(available_versions):
+    for idx, v in enumerate(available_versions):
         version(v)
         # The version of DPC++ must be the same as that of the OneAPI compilers.
         conflicts(
-            "%oneapi@" + _restrict_to_version(available_versions,idx), when="@" + v,
-            msg="DPC++ version must match that of OneAPI compilers."
+            "%oneapi@" + _restrict_to_version(available_versions, idx),
+            when="@" + v,
+            msg="DPC++ version must match that of OneAPI compilers.",
         )
 
     # This is a dummy package for oneAPI, so conflicts with all other compilers
@@ -87,7 +90,7 @@ class Dpcpp(Package):
 
     @property
     def cmake_prefix_paths(self):
-        return [str(self._compiler_dir.parent / 'IntelDPCPP')]
+        return [str(self._compiler_dir.parent / "IntelDPCPP")]
 
     @property
     def _library_paths(self):
@@ -108,7 +111,7 @@ class Dpcpp(Package):
         for path in self._library_paths:
             libs += filesystem.find_libraries("*.so*", path)
         return libs
-    
+
     def install(self):
         pass
 
@@ -120,16 +123,18 @@ class Dpcpp(Package):
         # this unnecessary (see
         # https://github.com/intel/llvm/blob/sycl/sycl/doc/design/PluginInterface.md#plugin-discovery).
         for path in self._library_paths:
-            #env.append_flags("__INTEL_PRE_CFLAGS", f"-Wl,-rpath,{path}")
+            # env.append_flags("__INTEL_PRE_CFLAGS", f"-Wl,-rpath,{path}")
             env.append_path("LD_LIBRARY_PATH", str(path))
 
     def setup_dependent_build_environment(self, env, dependent_spec):
         self._setup_common_dependent_environment(env, dependent_spec)
         env.prepend_path(
-            "PKG_CONFIG_PATH", str(self._oneapi_root / "tbb" / "latest" / "lib" / "pkgconfig")
+            "PKG_CONFIG_PATH",
+            str(self._oneapi_root / "tbb" / "latest" / "lib" / "pkgconfig"),
         )
         env.prepend_path(
-            "PKG_CONFIG_PATH", str(self._compiler_dir.parent.parent / "lib" / "pkgconfig")
+            "PKG_CONFIG_PATH",
+            str(self._compiler_dir.parent.parent / "lib" / "pkgconfig"),
         )
         env.append_path("SYCL_INCLUDE_DIR_HINT", str(self._compiler_dir.parent))
         env.append_path("SYCL_LIBRARY_DIR_HINT", str(self._compiler_dir.parent))
