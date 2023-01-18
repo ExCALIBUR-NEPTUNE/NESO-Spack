@@ -11,6 +11,8 @@ from llnl.util import filesystem
 from spack import *
 
 def _get_pkg_versions(pkg_name):
+    """Get a list of 'safe' (already checksummed) available versions of a Spack package
+    Equivalent to 'spack versions <pkg_name>' on the command line"""
     pkg_spec = spack.spec.Spec(pkg_name)
     pkg_cls  = spack.repo.path.get_pkg_class(pkg_name)
     pkg      = pkg_cls(pkg_spec)
