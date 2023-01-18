@@ -14,17 +14,17 @@ def _get_pkg_versions(pkg_name):
     pkg_spec = spack.spec.Spec(pkg_name)
     pkg_cls  = spack.repo.path.get_pkg_class(pkg_name)
     pkg      = pkg_cls(pkg_spec)
-    return sorted([vkey.string for vkey in pkg.versions.keys()])
+    return [vkey.string for vkey in pkg.versions.keys()]
 
 def _restrict_to_version(versions,idx):
     """Return a version constraint that excludes all but versions[idx].
     """
     if idx==0:
-        return versions[1]+":"
+        return ":"+versions[1]
     elif idx==len(versions)-1:
-        return ":"+versions[-2]
+        return versions[-2]+":"
     else:
-        return ":"+versions[idx-1]+","+versions[idx+1]+":"
+        return ":"+versions[idx+1]+","+versions[idx-1]+":"
 
 class Dpcpp(Package):
     """Dummy package that configures the DPC++ implementation of
