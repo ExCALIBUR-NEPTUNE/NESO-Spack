@@ -38,8 +38,6 @@ class Dpcpp(Package):
     homepage = "https://software.intel.com/content/www/us/en/develop/tools/oneapi.html"
     maintainers = ["cmacmackin"]
 
-    provides("sycl")
-
     # These are the same as the available versions of OneAPI
     # compilers.
     available_versions = _get_pkg_versions("intel-oneapi-compilers")
@@ -51,6 +49,10 @@ class Dpcpp(Package):
             when="@" + v,
             msg="DPC++ version must match that of OneAPI compilers.",
         )
+
+    # This has to come after the versions (only became an issue after
+    # automatically identifying oneAPI versions, for some reason)
+    provides("sycl")
 
     # This is a dummy package for oneAPI, so conflicts with all other compilers
     # FIXME: Is there a list from somewhere I can import to guarantee
