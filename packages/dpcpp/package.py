@@ -21,7 +21,9 @@ def _get_pkg_versions(pkg_name):
 
 
 def _restrict_to_version(versions, idx):
-    """Return a version constraint that excludes all but versions[idx]."""
+    """Return a version constraint that excludes all but
+    versions[idx]. Requires versions to be sorted in descending
+    order."""
     if idx == 0:
         return ":" + versions[1]
     elif idx == len(versions) - 1:
