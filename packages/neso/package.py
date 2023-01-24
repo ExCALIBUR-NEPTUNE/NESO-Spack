@@ -34,7 +34,7 @@ class Neso(CMakePackage):
     git = "https://github.com/ExCALIBUR-NEPTUNE/NESO"
 
     maintainers = ["jwscook", "will-saunders-ukaea", "cmacmackin"]
-    
+
     version('working', branch='main')
     version('main', branch='main')
 
