@@ -32,3 +32,14 @@ spack install neso.nektar%oneapi ^intel-oneapi-mkl ^py-numpy%intel ^boost%intel
 For more information on using this Spack repo to develop NESO, see the
 [README for that
 repository](https://github.com/ExCALIBUR-NEPTUNE/NESO).
+
+## NESO-Particles
+
+This repository can be used to install NESO-Particles. For example
+
+```
+# With OneAPI/IntelMPI
+spack install neso.neso-particles %oneapi
+# With HipSYCL/Mpich
+spack install neso.neso-particles ^neso.hipsycl ^mpich
+```

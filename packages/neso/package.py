@@ -58,6 +58,7 @@ class Neso(CMakePackage):
     depends_on("cmake@3.14:", type="build")
     depends_on("boost@1.74:", type="test")
     depends_on("googletest+gmock", type="link")
+    depends_on("neso-particles")
 
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     # This should really be set in the MKL package itself...
