@@ -49,7 +49,10 @@ class Neso(CMakePackage):
     variant(
         "coverage", default=False, description="Enable coverage reporting for GCC/Clang"
     )
+    variant("python", default=False, description="Build Python bindings")
 
+    extends("python", when="+python")
+    
     # Some SYCL packages require a specific run-time environment to be set
     depends_on("sycl", type=("build", "link"))
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
@@ -59,6 +62,7 @@ class Neso(CMakePackage):
     depends_on("boost@1.74:", type="test")
     depends_on("googletest+gmock", type="link")
     depends_on("neso-particles")
+    depends_on("py-pybind11", type="build", when="+python")
 
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     # This should really be set in the MKL package itself...
