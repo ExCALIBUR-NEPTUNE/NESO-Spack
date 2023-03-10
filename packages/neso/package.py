@@ -80,6 +80,7 @@ class Neso(CMakePackage):
         args = [
             # self.define("ENABLE_NESO_TESTS", self.run_tests),
             self.define_from_variant("ENABLE_COVERAGE", "coverage"),
+            self.define_from_variant("NESO_PYTHON_BINDINGS", "python"),
         ]
         
         for value in self.spec.variants['sanitizer'].value:
