@@ -1,0 +1,211 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ab4d2a8a7..04b34e7db 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -303,6 +303,11 @@ IF (NEKTAR_BUILD_LIBRARY)
+     INCLUDE_DIRECTORIES(library)
+ ENDIF()
+ 
++# Both normal libraries and solver libraries can modify NEKTAR++_LIBRARIES - reset it if we're building either
++if (NEKTAR_BUILD_LIBRARY OR NEKTAR_BUILD_SOLVERS)
++    SET(NEKTAR++_LIBRARIES "" CACHE INTERNAL "")
++ENDIF()
++
+ INCLUDE_DIRECTORIES(utilities)
+ ADD_SUBDIRECTORY(utilities)
+ 
+@@ -310,9 +315,6 @@ INCLUDE_DIRECTORIES(solvers)
+ ADD_SUBDIRECTORY(solvers)
+ 
+ IF (NEKTAR_BUILD_LIBRARY)
+-    # List of Nektar++ libraries will be rebuilt every configuration.
+-    SET(NEKTAR++_LIBRARIES "" CACHE INTERNAL "")
+-
+     ADD_SUBDIRECTORY(library)
+     INSTALL(EXPORT Nektar++Libraries DESTINATION ${NEKTAR_CMAKE_DIR} COMPONENT dev)
+ ENDIF (NEKTAR_BUILD_LIBRARY)
+diff --git a/cmake/NektarCommon.cmake b/cmake/NektarCommon.cmake
+index 9eda06752..f5ba50c1a 100644
+--- a/cmake/NektarCommon.cmake
++++ b/cmake/NektarCommon.cmake
+@@ -198,37 +198,43 @@ ENDMACRO()
+ #
+ # Arguments:
+ #   - `name`: target name to construct
+-#   - `SUMMARY`: a brief summary of the library
+ #   - `DESCRIPTION`: a more detailed description of the library
++#   - `LINK_MODE`: mode in which to link dependencies: accepts public (default) interface or private; case insensitive
++#   - `SUMMARY`: a brief summary of the library
++#   - `TARGET_SUFFIX`: Optional suffix to attach to the target name. Allows different targets to share the same (output) `name`
+ #   - `DEPENDS`: a list of components on which this target depends on
+ #   - `SOURCES`: a list of source files for this target
+ #   - `HEADERS`: a list of header files for this target. These will be
+ #     automatically put into a `dev` package.
+ #
+ MACRO(ADD_NEKTAR_LIBRARY name)
+-    CMAKE_PARSE_ARGUMENTS(NEKLIB "" "DESCRIPTION;SUMMARY" "DEPENDS;SOURCES;HEADERS" ${ARGN})
++    CMAKE_PARSE_ARGUMENTS(NEKLIB "" "DESCRIPTION;LINK_MODE;SUMMARY;TARGET_SUFFIX" "DEPENDS;SOURCES;HEADERS" ${ARGN})
+ 
+-    ADD_LIBRARY(${name} ${NEKTAR_LIBRARY_TYPE} ${NEKLIB_SOURCES} ${NEKLIB_HEADERS})
++    SET (NEKLIB_TARGET_NAME ${name}${NEKLIB_TARGET_SUFFIX})
++    ADD_LIBRARY(${NEKLIB_TARGET_NAME} ${NEKTAR_LIBRARY_TYPE} ${NEKLIB_SOURCES} ${NEKLIB_HEADERS})
+ 
+     # Infer component name from lower-case library name, variables should use
+     # upper-case.
+-    STRING(TOLOWER ${name} NEKLIB_COMPONENT)
+-    STRING(TOUPPER ${name} NEKLIB_COMPVAR)
++    STRING(TOLOWER ${NEKLIB_TARGET_NAME} NEKLIB_COMPONENT)
++    STRING(TOUPPER ${NEKLIB_TARGET_NAME} NEKLIB_COMPVAR)
+ 
+     # Add name to a list so that we know for constructing dependencies.
+-    SET(NEKTAR++_LIBRARIES ${NEKTAR++_LIBRARIES} ${name} CACHE INTERNAL "")
++    SET(NEKTAR++_LIBRARIES ${NEKTAR++_LIBRARIES} ${NEKLIB_TARGET_NAME} CACHE INTERNAL "")
+ 
+-    SET_PROPERTY(TARGET ${name} PROPERTY FOLDER ${NEKLIB_COMPONENT})
+-    SET_PROPERTY(TARGET ${name} PROPERTY VERSION ${NEKTAR_VERSION})
++    SET_PROPERTY(TARGET ${NEKLIB_TARGET_NAME} PROPERTY FOLDER ${NEKLIB_COMPONENT})
++    SET_PROPERTY(TARGET ${NEKLIB_TARGET_NAME} PROPERTY VERSION ${NEKTAR_VERSION})
++    # Output name is always ${name}, even if a suffix was used for the target name
++    SET_PROPERTY(TARGET ${NEKLIB_TARGET_NAME} PROPERTY OUTPUT_NAME ${name})
+ 
+-    SET_COMMON_PROPERTIES(${name})
++    SET_COMMON_PROPERTIES(${NEKLIB_TARGET_NAME})
+ 
+-    INSTALL(TARGETS ${name}
++    INSTALL(TARGETS ${NEKLIB_TARGET_NAME}
+         EXPORT Nektar++Libraries
+         RUNTIME DESTINATION ${NEKTAR_BIN_DIR} COMPONENT ${NEKLIB_COMPONENT} OPTIONAL
+         ARCHIVE DESTINATION ${NEKTAR_LIB_DIR} COMPONENT ${NEKLIB_COMPONENT} OPTIONAL
+         LIBRARY DESTINATION ${NEKTAR_LIB_DIR} COMPONENT ${NEKLIB_COMPONENT} OPTIONAL)
+ 
++    # Headers always installed in <include_dir>/${name} rather than <include_dir>/${NEKLIB_TARGET_NAME}
+     FOREACH(HEADER ${NEKLIB_HEADERS})
+         STRING(REGEX MATCH "(.*)[/\\]" DIR ${HEADER})
+         INSTALL(FILES ${HEADER}
+@@ -238,7 +244,21 @@ MACRO(ADD_NEKTAR_LIBRARY name)
+ 
+     # If we have dependencies then link against them.
+     IF(NEKLIB_DEPENDS)
+-        TARGET_LINK_LIBRARIES(${name} LINK_PUBLIC ${NEKLIB_DEPENDS})
++        IF (NEKLIB_LINK_MODE)
++            string(TOLOWER "${NEKLIB_LINK_MODE}" link_mode)
++        ELSE()
++            set(link_mode "public")
++        ENDIF()
++
++        IF(link_mode STREQUAL "private")
++            TARGET_LINK_LIBRARIES(${NEKLIB_TARGET_NAME} PRIVATE ${NEKLIB_DEPENDS})
++        ELSEIF(link_mode STREQUAL "interface")
++            TARGET_LINK_LIBRARIES(${NEKLIB_TARGET_NAME} INTERFACE ${NEKLIB_DEPENDS})
++        ELSEIF(link_mode STREQUAL "public")
++            TARGET_LINK_LIBRARIES(${NEKLIB_TARGET_NAME} LINK_PUBLIC ${NEKLIB_DEPENDS})
++        ELSE()
++            message(FATAL_ERROR "ADD_NEKTAR_LIBRARY: Unknown link mode [${NEKLIB_LINK_MODE}] for [${NEKLIB_TARGET_NAME}]")
++        ENDIF()
+     ENDIF()
+ ENDMACRO()
+ 
+diff --git a/solvers/CMakeLists.txt b/solvers/CMakeLists.txt
+index 08d095f63..ae97d9e5e 100644
+--- a/solvers/CMakeLists.txt
++++ b/solvers/CMakeLists.txt
+@@ -10,6 +10,7 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
+ 
+     IF (SOLVER_LIBRARY_SOURCES)
+         ADD_LIBRARY(${name}-obj OBJECT ${SOLVER_LIBRARY_SOURCES})
++        SET_PROPERTY(TARGET ${name}-obj PROPERTY POSITION_INDEPENDENT_CODE ON)
+         ADD_DEPENDENCIES(${name}-obj SolverUtils)
+         LIST(APPEND SOLVER_SOURCES $<TARGET_OBJECTS:${name}-obj>)
+         SET_COMMON_PROPERTIES(${name}-obj)
+@@ -23,6 +24,26 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
+         COMPONENT ${SOLVER_COMPONENT} DEPENDS SolverUtils SOURCES ${SOLVER_SOURCES})
+ ENDMACRO()
+ 
++MACRO(ADD_SOLVER_LIBRARY name)
++    CMAKE_PARSE_ARGUMENTS(SOLVERLIB "" "" "SOURCES;HEADERS;DEPENDS" ${ARGN} )
++
++    # If an object library was already buuilt using ADD_SOLVER_EXECUTABLE, reuse that
++    IF (TARGET ${name}-obj)
++      SET(SOLVERLIB_SRCS_USED $<TARGET_OBJECTS:${name}-obj>)
++    ELSE()
++      SET(SOLVERLIB_SRCS_USED ${SOLVERLIB_SOURCES})
++    ENDIF()
++    # Append "Lib" suffix to target name, otherwise it clashes with the executable (final output will still be called ${name})
++    ADD_NEKTAR_LIBRARY(${name}
++                       TARGET_SUFFIX Lib
++                       LINK_MODE PRIVATE
++                       SOURCES ${SOLVERLIB_SRCS_USED}
++                       HEADERS ${SOLVERLIB_HEADERS}
++                       DEPENDS ${SOLVERLIB_DEPENDS}
++                       SUMMARY "Nektar++ ${name} library"
++                       DESCRIPTION "This library provides functionality used by ${name}.")
++ENDMACRO()
++
+ MACRO(ADD_SOLVER_UTILITY name solver)
+     CMAKE_PARSE_ARGUMENTS(UTIL "USELIBRARY" "COMPONENT" "SOURCES" ${ARGN})
+ 
+diff --git a/solvers/CompressibleFlowSolver/CMakeLists.txt b/solvers/CompressibleFlowSolver/CMakeLists.txt
+index 9c9aab775..119ed2444 100644
+--- a/solvers/CompressibleFlowSolver/CMakeLists.txt
++++ b/solvers/CompressibleFlowSolver/CMakeLists.txt
+@@ -61,6 +61,60 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
+         Preconditioner/PreconCfs.cpp
+         Preconditioner/PreconCfsBRJ.cpp
+         )
++
++        SET(CompressibleFlowSolverHeaders
++        ArtificialDiffusion/ArtificialDiffusion.h
++        ArtificialDiffusion/NonSmoothShockCapture.h
++        BoundaryConditions/CFSBndCond.h
++        BoundaryConditions/ExtrapOrder0BC.h
++        BoundaryConditions/IsentropicVortexBC.h
++        BoundaryConditions/PressureInflowFileBC.h
++        BoundaryConditions/PressureMachTemperatureBC.h
++        BoundaryConditions/PressureOutflowBC.h
++        BoundaryConditions/PressureOutflowNonReflectiveBC.h
++        BoundaryConditions/RiemannInvariantBC.h
++        BoundaryConditions/RinglebFlowBC.h
++        BoundaryConditions/StagnationInflowBC.h
++        BoundaryConditions/SymmetryBC.h
++        BoundaryConditions/TimeDependentBC.h
++        BoundaryConditions/WallBC.h
++        BoundaryConditions/WallViscousBC.h
++        Diffusion/DiffusionLDGNS.h
++        EquationSystems/CompressibleFlowSystem.h
++        EquationSystems/CompressibleFlowSystemImplicit.h
++        EquationSystems/EulerCFE.h
++        EquationSystems/EulerImplicitCFE.h
++        EquationSystems/NavierStokesCFEAxisym.h
++        EquationSystems/NavierStokesCFE.h
++        EquationSystems/NavierStokesImplicitCFE.h
++        Forcing/ForcingAxiSymmetric.h
++        Forcing/ForcingQuasi1D.h
++        Misc/EquationOfState.h
++        Misc/IdealGasEoS.h
++        Misc/PengRobinsonEoS.h
++        Misc/RedlichKwongEoS.h
++        Misc/VanDerWaalsEoS.h
++        Misc/VariableConverter.h
++        Preconditioner/PreconCfsBRJ.h
++        Preconditioner/PreconCfs.h
++        Preconditioner/PreconCfsOp.h
++        RiemannSolvers/AUSM0Solver.h
++        RiemannSolvers/AUSM1Solver.h
++        RiemannSolvers/AUSM2Solver.h
++        RiemannSolvers/AUSM3Solver.h
++        RiemannSolvers/AverageSolver.h
++        RiemannSolvers/CompressibleSolver.h
++        RiemannSolvers/ExactSolverToro.h
++        RiemannSolvers/HLLCSolver.h
++        RiemannSolvers/HLLSolver.h
++        RiemannSolvers/LaxFriedrichsSolver.h
++        RiemannSolvers/RoeSolver.h
++        RiemannSolvers/RoeSolverSIMD.h
++       )
++
++    # Create separate library. No need to pass source files, as the executable's LIBRARY_SOURCES objects will be reused
++    ADD_SOLVER_LIBRARY(CompressibleFlowSolver HEADERS ${CompressibleFlowSolverHeaders} DEPENDS SolverUtils)
++
+     IF(NEKTAR_BUILD_UNIT_TESTS)
+       ADD_SUBDIRECTORY(RiemannSolvers/UnitTests)
+     ENDIF()

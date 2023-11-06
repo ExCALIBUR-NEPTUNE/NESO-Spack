@@ -27,7 +27,8 @@ class Nektar(CMakePackage):
     # 18/02/2022
     version("5.1.1-8715c9", commit="8715c90f900b4f22d36881ad5e3640afa40d5e39", deprecated=True)
 
-    patch('add_compflow_solver_lib.patch', when='@:5.3.0')
+    patch("add_compflow_solver_lib_v5.3.0.patch", when="@5.2.0:5.3.0")
+    patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0:")
 
     variant("mpi", default=True, description="Builds with mpi support")
     variant("fftw", default=True, description="Builds with fftw support")
