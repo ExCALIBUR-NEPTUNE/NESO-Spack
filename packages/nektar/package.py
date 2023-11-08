@@ -18,16 +18,9 @@ class Nektar(CMakePackage):
 
     # 18/10/2023
     version("5.4.0",commit="002bf62648ec667e10524ceb8a98bb1c21804130")
-    # 03/09/2022
-    version("5.3.0-2e0fb8", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945", preferred=True)
-    # 12/08/2022 - has fix for external MPI Init/Finalize
-    version("5.2.0-f1598d", commit="f1598d5e39f175acf388b90df392f76ff29d7f9d", deprecated=True)
-    # 27/05/2022
-    version("5.2.0-b36964", commit="b36964360503a1a1f7facc3bbe93668ae4474be7", deprecated=True)
-    # 22/04/2022
-    version("5.2.0-3dbd7f", commit="3dbd7f65724bf4a611c942e1e6b692d20e80ba1e", deprecated=True)
-    # 18/02/2022
-    version("5.1.1-8715c9", commit="8715c90f900b4f22d36881ad5e3640afa40d5e39", deprecated=True)
+    version("5.3.0", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945", preferred=True)
+    version("5.2.0", commit="f1598d5e39f175acf388b90df392f76ff29d7f9d", deprecated=True)
+    version("5.1.1", commit="8715c90f900b4f22d36881ad5e3640afa40d5e39", deprecated=True)
 
     patch("add_compflow_solver_lib_v5.3.0-2e0fb8.patch", when="@5.3.0-2e0fb8")
     patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0")

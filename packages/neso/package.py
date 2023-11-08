@@ -54,7 +54,7 @@ class Neso(CMakePackage):
     depends_on("sycl", type=("build", "link"))
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     depends_on("fftw-api", type="link")
-    depends_on("nektar@5.4:+compflow_solver", type="link")
+    depends_on("nektar@5.3+compflow_solver", type="link", when='@0.1.0:')
     depends_on("cmake@3.14:", type="build")
     depends_on("boost@1.74:", type="test")
     depends_on("googletest+gmock", type="link")
