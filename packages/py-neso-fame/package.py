@@ -21,10 +21,10 @@ class PyNesoFame(PythonPackage):
 
     version("main", branch="main")
 
-    # FIXME: Only add the python/pip/wheel dependencies if you need specific versions
-    # or need to change the dependency type. Generic python/pip/wheel dependencies are
-    # added implicity by the PythonPackage base class.
     depends_on("python@3.10:", type=("build", "run"))
     depends_on("py-setuptools", type="build")
     depends_on("py-hypnotoad", type=("build", "run"))
     depends_on("nektar+python", type=("build", "run"))
+    depends_on("py-click", type=("build", "run"))
+    depends_on("py-pytest", type="test")
+    depends_on("py-hypothesis", type="test")

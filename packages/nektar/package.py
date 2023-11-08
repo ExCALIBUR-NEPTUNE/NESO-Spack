@@ -34,6 +34,7 @@ class Nektar(CMakePackage):
     variant("arpack", default=True, description="Builds with arpack support")
     variant("tinyxml", default=True, description="Builds with external tinyxml support")
     variant("hdf5", default=False, description="Builds with hdf5 support (conflicts with builtin?)")
+    variant("vtk", default=False, description="Build FieldConvert with VTK libraries")
     variant("scotch", default=True, description="Builds with scotch partitioning support")
     variant("demos", default=False, description="Build demonstration codes")
     variant("python", default=True, description="Enable python support")
@@ -58,13 +59,14 @@ class Nektar(CMakePackage):
     depends_on("blas")
     depends_on("tinyxml", when="+tinyxml")
     depends_on("lapack")
+    depends_on("vtk@8.0.0:", when="+vtk")
     # Last version supporting C++11
     depends_on(
-        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic +python +numpy",
+        "boost@1.61.0: +thread +iostreams +filesystem +system +program_options +regex +python +numpy",
         when="+python",
     )
     depends_on(
-        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic",
+        "boost@1.61.0: +thread +iostreams +filesystem +system +program_options +regex",
         when="~python",
     )
     depends_on("tinyxml", when="platform=darwin")
@@ -74,7 +76,7 @@ class Nektar(CMakePackage):
     depends_on("fftw@3.0: ~mpi", when="~mpi+fftw")
     depends_on("arpack-ng +mpi", when="+arpack+mpi")
     depends_on("arpack-ng ~mpi", when="+arpack~mpi")
-    depends_on("hdf5 +mpi +hl", when="+mpi+hdf5")
+    depends_on("hdf5 +mpi +hl +cxx +fortran", when="+mpi+hdf5")
     depends_on("scotch ~mpi ~metis", when="~mpi+scotch")
     depends_on("scotch +mpi ~metis", when="+mpi+scotch")
 
@@ -115,6 +117,7 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_USE_PETSC=OFF")
         args.append("-DNEKTAR_USE_SCOTCH=%s" % hasfeature("+scotch"))
         args.append("-DNEKTAR_USE_THREAD_SAFETY=ON")
+        args.append("-DNEKTAR_USE_VTK=%s" % hasfeature("+vtk"))
         return args
 
     def install(self, spec, prefix):
