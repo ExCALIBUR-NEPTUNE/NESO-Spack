@@ -16,14 +16,12 @@ class Nektar(CMakePackage):
 
     git = "https://gitlab.nektar.info/nektar/nektar.git"
 
-    # 18/10/2023
-    version("5.4.0",commit="002bf62648ec667e10524ceb8a98bb1c21804130")
-    version("5.3.0", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945", preferred=True)
-    version("5.2.0", commit="f1598d5e39f175acf388b90df392f76ff29d7f9d", deprecated=True)
-    version("5.1.1", commit="8715c90f900b4f22d36881ad5e3640afa40d5e39", deprecated=True)
+    version("5.4.0", commit="002bf62648ec667e10524ceb8a98bb1c21804130", preferred=True)
+    version("5.3.0", commit="f286f809cfeb26cb73828c90a689a048898971d2")
+    version("5.2.0-2022-09-03", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945")
 
-    patch("add_compflow_solver_lib_v5.3.0-2e0fb8.patch", when="@5.3.0-2e0fb8")
-    patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0")
+    patch("add_compflow_solver_lib_v5.2.0_2022-09-03.patch", when="@5.2.0-2022-09-03:5.3")
+    patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0:")
 
     variant("mpi", default=True, description="Builds with mpi support")
     variant("fftw", default=True, description="Builds with fftw support")
