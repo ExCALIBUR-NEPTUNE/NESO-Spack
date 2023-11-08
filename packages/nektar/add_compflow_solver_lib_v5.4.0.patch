@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 34c7e8ad4..8408a1a86 100644
+index ab4d2a8a7..04b34e7db 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -303,6 +303,11 @@ IF (NEKTAR_BUILD_LIBRARY)
@@ -25,10 +25,10 @@ index 34c7e8ad4..8408a1a86 100644
      INSTALL(EXPORT Nektar++Libraries DESTINATION ${NEKTAR_CMAKE_DIR} COMPONENT dev)
  ENDIF (NEKTAR_BUILD_LIBRARY)
 diff --git a/cmake/NektarCommon.cmake b/cmake/NektarCommon.cmake
-index 01274b4fe..5836744f4 100644
+index 9eda06752..f5ba50c1a 100644
 --- a/cmake/NektarCommon.cmake
 +++ b/cmake/NektarCommon.cmake
-@@ -201,37 +201,43 @@ ENDMACRO()
+@@ -198,37 +198,43 @@ ENDMACRO()
  #
  # Arguments:
  #   - `name`: target name to construct
@@ -82,7 +82,7 @@ index 01274b4fe..5836744f4 100644
      FOREACH(HEADER ${NEKLIB_HEADERS})
          STRING(REGEX MATCH "(.*)[/\\]" DIR ${HEADER})
          INSTALL(FILES ${HEADER}
-@@ -241,7 +247,21 @@ MACRO(ADD_NEKTAR_LIBRARY name)
+@@ -238,7 +244,21 @@ MACRO(ADD_NEKTAR_LIBRARY name)
  
      # If we have dependencies then link against them.
      IF(NEKLIB_DEPENDS)
@@ -106,7 +106,7 @@ index 01274b4fe..5836744f4 100644
  ENDMACRO()
  
 diff --git a/solvers/CMakeLists.txt b/solvers/CMakeLists.txt
-index 28d0e0f76..99b1df828 100644
+index 08d095f63..ae97d9e5e 100644
 --- a/solvers/CMakeLists.txt
 +++ b/solvers/CMakeLists.txt
 @@ -10,6 +10,7 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
@@ -116,8 +116,8 @@ index 28d0e0f76..99b1df828 100644
 +        SET_PROPERTY(TARGET ${name}-obj PROPERTY POSITION_INDEPENDENT_CODE ON)
          ADD_DEPENDENCIES(${name}-obj SolverUtils)
          LIST(APPEND SOLVER_SOURCES $<TARGET_OBJECTS:${name}-obj>)
-     ENDIF()
-@@ -22,6 +23,26 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
+         SET_COMMON_PROPERTIES(${name}-obj)
+@@ -23,6 +24,26 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
          COMPONENT ${SOLVER_COMPONENT} DEPENDS SolverUtils SOURCES ${SOLVER_SOURCES})
  ENDMACRO()
  
@@ -145,80 +145,62 @@ index 28d0e0f76..99b1df828 100644
      CMAKE_PARSE_ARGUMENTS(UTIL "USELIBRARY" "COMPONENT" "SOURCES" ${ARGN})
  
 diff --git a/solvers/CompressibleFlowSolver/CMakeLists.txt b/solvers/CompressibleFlowSolver/CMakeLists.txt
-index d116f722d..9a29903eb 100644
+index 9c9aab775..119ed2444 100644
 --- a/solvers/CompressibleFlowSolver/CMakeLists.txt
 +++ b/solvers/CompressibleFlowSolver/CMakeLists.txt
-@@ -64,6 +64,78 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
-         Preconditioner/PreconCfsOp.cpp
+@@ -61,6 +61,60 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
+         Preconditioner/PreconCfs.cpp
          Preconditioner/PreconCfsBRJ.cpp
          )
 +
 +        SET(CompressibleFlowSolverHeaders
-+          ArtificialDiffusion/NonSmoothShockCapture.h
-+          ArtificialDiffusion/ArtificialDiffusion.h
-+          BoundaryConditions/StagnationInflowBC.h
-+          BoundaryConditions/SymmetryBC.h
-+          BoundaryConditions/ExtrapOrder0BC.h
-+          BoundaryConditions/WallViscousBC.h
-+          BoundaryConditions/RiemannInvariantBC.h
-+          BoundaryConditions/IsentropicVortexBC.h
-+          BoundaryConditions/TimeDependentBC.h
-+          BoundaryConditions/PressureOutflowBC.h
-+          BoundaryConditions/WallBC.h
-+          BoundaryConditions/PressureInflowFileBC.h
-+          BoundaryConditions/PressureMachTemperatureBC.h
-+          BoundaryConditions/CFSBndCond.h
-+          BoundaryConditions/RinglebFlowBC.h
-+          BoundaryConditions/PressureOutflowNonReflectiveBC.h
-+          ArtificialDiffusion/NonSmoothShockCapture.h
-+          ArtificialDiffusion/ArtificialDiffusion.h
-+          BoundaryConditions/StagnationInflowBC.h
-+          BoundaryConditions/SymmetryBC.h
-+          BoundaryConditions/ExtrapOrder0BC.h
-+          BoundaryConditions/WallViscousBC.h
-+          BoundaryConditions/RiemannInvariantBC.h
-+          BoundaryConditions/IsentropicVortexBC.h
-+          BoundaryConditions/TimeDependentBC.h
-+          BoundaryConditions/PressureOutflowBC.h
-+          BoundaryConditions/WallBC.h
-+          BoundaryConditions/PressureInflowFileBC.h
-+          BoundaryConditions/PressureMachTemperatureBC.h
-+          BoundaryConditions/CFSBndCond.h
-+          BoundaryConditions/RinglebFlowBC.h
-+          BoundaryConditions/PressureOutflowNonReflectiveBC.h
-+          Diffusion/DiffusionLDGNS.h
-+          EquationSystems/CompressibleFlowSystemImplicit.h
-+          EquationSystems/EulerCFE.h
-+          EquationSystems/NavierStokesImplicitCFE.h
-+          EquationSystems/EulerImplicitCFE.h
-+          EquationSystems/NavierStokesCFEAxisym.h
-+          EquationSystems/NavierStokesCFE.h
-+          EquationSystems/IsentropicVortex.h
-+          EquationSystems/RinglebFlow.h
-+          Forcing/ForcingQuasi1D.h
-+          Forcing/ForcingAxiSymmetric.h
-+          EquationSystems/CompressibleFlowSystem.h
-+          Misc/PengRobinsonEoS.h
-+          Misc/IdealGasEoS.h
-+          Misc/VariableConverter.h
-+          Misc/VanDerWaalsEoS.h
-+          Misc/RedlichKwongEoS.h
-+          Misc/EquationOfState.h
-+          Preconditioner/PreconCfs.h
-+          Preconditioner/PreconCfsBRJ.h
-+          Preconditioner/PreconCfsOp.h
-+          RiemannSolvers/RoeSolverSIMD.h
-+          RiemannSolvers/HLLCSolver.h
-+          RiemannSolvers/AUSM2Solver.h
-+          RiemannSolvers/AverageSolver.h
-+          RiemannSolvers/CompressibleSolver.h
-+          RiemannSolvers/ExactSolverToro.h
-+          RiemannSolvers/RoeSolver.h
-+          RiemannSolvers/AUSM1Solver.h
-+          RiemannSolvers/LaxFriedrichsSolver.h
-+          RiemannSolvers/AUSM0Solver.h
-+          RiemannSolvers/AUSM3Solver.h
-+          RiemannSolvers/HLLSolver.h
++        ArtificialDiffusion/ArtificialDiffusion.h
++        ArtificialDiffusion/NonSmoothShockCapture.h
++        BoundaryConditions/CFSBndCond.h
++        BoundaryConditions/ExtrapOrder0BC.h
++        BoundaryConditions/IsentropicVortexBC.h
++        BoundaryConditions/PressureInflowFileBC.h
++        BoundaryConditions/PressureMachTemperatureBC.h
++        BoundaryConditions/PressureOutflowBC.h
++        BoundaryConditions/PressureOutflowNonReflectiveBC.h
++        BoundaryConditions/RiemannInvariantBC.h
++        BoundaryConditions/RinglebFlowBC.h
++        BoundaryConditions/StagnationInflowBC.h
++        BoundaryConditions/SymmetryBC.h
++        BoundaryConditions/TimeDependentBC.h
++        BoundaryConditions/WallBC.h
++        BoundaryConditions/WallViscousBC.h
++        Diffusion/DiffusionLDGNS.h
++        EquationSystems/CompressibleFlowSystem.h
++        EquationSystems/CompressibleFlowSystemImplicit.h
++        EquationSystems/EulerCFE.h
++        EquationSystems/EulerImplicitCFE.h
++        EquationSystems/NavierStokesCFEAxisym.h
++        EquationSystems/NavierStokesCFE.h
++        EquationSystems/NavierStokesImplicitCFE.h
++        Forcing/ForcingAxiSymmetric.h
++        Forcing/ForcingQuasi1D.h
++        Misc/EquationOfState.h
++        Misc/IdealGasEoS.h
++        Misc/PengRobinsonEoS.h
++        Misc/RedlichKwongEoS.h
++        Misc/VanDerWaalsEoS.h
++        Misc/VariableConverter.h
++        Preconditioner/PreconCfsBRJ.h
++        Preconditioner/PreconCfs.h
++        Preconditioner/PreconCfsOp.h
++        RiemannSolvers/AUSM0Solver.h
++        RiemannSolvers/AUSM1Solver.h
++        RiemannSolvers/AUSM2Solver.h
++        RiemannSolvers/AUSM3Solver.h
++        RiemannSolvers/AverageSolver.h
++        RiemannSolvers/CompressibleSolver.h
++        RiemannSolvers/ExactSolverToro.h
++        RiemannSolvers/HLLCSolver.h
++        RiemannSolvers/HLLSolver.h
++        RiemannSolvers/LaxFriedrichsSolver.h
++        RiemannSolvers/RoeSolver.h
++        RiemannSolvers/RoeSolverSIMD.h
 +       )
 +
 +    # Create separate library. No need to pass source files, as the executable's LIBRARY_SOURCES objects will be reused
