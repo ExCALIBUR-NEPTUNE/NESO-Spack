@@ -15,6 +15,7 @@ class NesoParticles(CMakePackage):
     version("main", branch="main")
 
     variant("build_tests", default=True, description="Builds the NESO-Particles tests.")
+    variant("nvcxx", default=False, description="Builds with CUDA CMake flags.")
 
     depends_on("mpi", type=("build", "link", "run"))
 
@@ -33,4 +34,8 @@ class NesoParticles(CMakePackage):
         args = []
         if not "+build_tests" in self.spec:
             args.append("-DENABLE_NESO_PARTICLES_TESTS=off")
+        if "+nvcxx" in self.spec:
+            args.append("-DNESO_PARTICLES_DEVICE_TYPE=GPU")
+            args.append("-DHIPSYCL_TARGETS=cuda-nvcxx")
+
         return args
