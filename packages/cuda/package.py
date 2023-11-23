@@ -22,13 +22,21 @@ from spack.package import *
 #  - checksum must be sha256
 #  - package key must be in the form '{os}-{arch}' where 'os' is in the
 #    format returned by platform.system() and 'arch' by platform.machine()
-preferred_ver = "12.2.0"
+preferred_ver = "12.2.2"
 _versions = {
-    "12.2.0": {
+    "12.2.2": {
+        "Linux-aarch64": (
+            "bcb992a8743efb525c22687c2336483c",
+            "https://developer.download.nvidia.com/compute/cuda/12.2.2/local_installers/cuda_12.2.2_535.104.05_linux_sbsa.run",
+        ),
         "Linux-x86_64": (
             "a32d82924645e0369c14acaebd54bff1",
             "https://developer.download.nvidia.com/compute/cuda/12.2.2/local_installers/cuda_12.2.2_535.104.05_linux.run",
         ),
+        "Linux-ppc64le": (
+            "2ccddf5ac157dd6ff2339c64171f6c5d",
+            "https://developer.download.nvidia.com/compute/cuda/12.2.2/local_installers/cuda_12.2.2_535.104.05_linux_ppc64le.run",
+        )
     },
     "12.1.1": {
         "Linux-aarch64": (
