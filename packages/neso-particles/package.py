@@ -29,6 +29,7 @@ class NesoParticles(CMakePackage):
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     conflicts("^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers.")
+    conflicts("+nvcxx", when="%oneapi", msg="Nvidia compilation option can only be used with gcc compilers")
 
     def cmake_args(self):
         args = []

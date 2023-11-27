@@ -57,16 +57,18 @@ class Neso(CMakePackage):
     depends_on("sycl", type=("build", "link"))
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     depends_on("fftw-api", type="link")
-    depends_on("nektar+compflow_solver", type="link")
+    depends_on("nektar@5.2.0-2022-09-03+compflow_solver", type="link")
     depends_on("cmake@3.14:", type="build")
     depends_on("boost@1.74:", type="test")
     depends_on("googletest+gmock", type="link")
     depends_on("neso-particles")
+    depends_on("mpi", type=("build", "run"))
 
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     # This should really be set in the MKL package itself...
     conflicts("^intel-oneapi-mkl@2022.2", when="%oneapi@:2022.1", msg="Use the same version of MKL and OneAPI compilers.")
     conflicts("^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers.")
+    conflicts("+nvcxx", when="%oneapi", msg="Nvidia compilation option can only be used with gcc compilers")
 
     def cmake_args(self):
         # Ideally we would only build the tests when Spack is going to
