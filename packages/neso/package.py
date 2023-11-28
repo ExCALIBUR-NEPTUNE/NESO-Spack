@@ -49,6 +49,9 @@ class Neso(CMakePackage):
     variant(
         "coverage", default=False, description="Enable coverage reporting for GCC/Clang"
     )
+    variant(
+        "nvcxx", default=False, description="Enable compilation using nvcxx"
+    )
 
     # Some SYCL packages require a specific run-time environment to be set
     depends_on("sycl", type=("build", "link"))
@@ -65,6 +68,7 @@ class Neso(CMakePackage):
     # This should really be set in the MKL package itself...
     conflicts("^intel-oneapi-mkl@2022.2", when="%oneapi@:2022.1", msg="Use the same version of MKL and OneAPI compilers.")
     conflicts("^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers.")
+    conflicts("+nvcxx", when="%oneapi", msg="Nvidia compilation option can only be used with gcc compilers")
 
     def cmake_args(self):
         # Ideally we would only build the tests when Spack is going to
@@ -92,5 +96,9 @@ class Neso(CMakePackage):
                         warn("The environment variable SYCL_DEVICE_FILTER is not set and the code may not run as intended in this environment. A sensible default for running on the cpu is `export SYCL_DEVICE_FILTER=host`. For more information please see e.g. https://tinyurl.com/y37672as.", UserWarning, stacklevel=1)
 
                     break
+
+        if "+nvcxx" in self.spec:
+            args.append("-DHIPSYCL_TARGETS=cuda-nvcxx")
+            args.append("-DSYCL_DEVICE_FILTER=GPU")
 
         return args

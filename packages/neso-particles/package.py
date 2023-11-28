@@ -15,6 +15,7 @@ class NesoParticles(CMakePackage):
     version("main", branch="main")
 
     variant("build_tests", default=True, description="Builds the NESO-Particles tests.")
+    variant("nvcxx", default=False, description="Builds with CUDA CMake flags.")
 
     depends_on("mpi", type=("build", "link", "run"))
 
@@ -28,9 +29,14 @@ class NesoParticles(CMakePackage):
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     conflicts("^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers.")
+    conflicts("+nvcxx", when="%oneapi", msg="Nvidia compilation option can only be used with gcc compilers")
 
     def cmake_args(self):
         args = []
         if not "+build_tests" in self.spec:
             args.append("-DENABLE_NESO_PARTICLES_TESTS=off")
+        if "+nvcxx" in self.spec:
+            args.append("-DNESO_PARTICLES_DEVICE_TYPE=GPU")
+            args.append("-DHIPSYCL_TARGETS=cuda-nvcxx")
+
         return args
