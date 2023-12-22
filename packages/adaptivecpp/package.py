@@ -14,10 +14,10 @@ from spack import *
 """
 Install nvc++ version with soemthing like
 
-    spack install neso.adaptivecpp -cuda +nvcxx ^cuda@11.7
+    spack install neso.adaptivecpp +nvcxx
 
 # openmp only
-    spack install neso.adaptivecpp -cuda -nvcxx
+    spack install neso.adaptivecpp
 to avoid llvm build
 """
 
@@ -31,7 +31,11 @@ class Adaptivecpp(CMakePackage):
 
     provides("sycl")
 
-    version("23.10.0", commit="3952b468c9da89edad9dff953cdcab0a3c3bf78c", submodules=True)
+    version(
+        "23.10.0",
+        commit="3952b468c9da89edad9dff953cdcab0a3c3bf78c",
+        submodules=True,
+    )
 
     variant(
         "cuda",
@@ -55,27 +59,25 @@ class Adaptivecpp(CMakePackage):
     )
 
     depends_on("cmake@3.5:", type="build")
-    depends_on("boost +filesystem", when="@:0.8")
-    depends_on("boost@1.60.0: +filesystem +fiber +context cxxstd=17", when="@0.9.1:")
+    depends_on("boost +filesystem", when="@23.10.0:")
+    depends_on(
+        "boost@1.60.0: +filesystem +fiber +context cxxstd=17", when="@23.10.0:"
+    )
     depends_on("python@3:")
     # depends_on("llvm@8: +clang", when="~cuda")
     depends_on("llvm@9: +clang", when="+cuda")
     depends_on("llvm@9: +clang", when="+omp_llvm")
-    # LLVM PTX backend requires cuda7:10.1 (https://tinyurl.com/v82k5qq)
-    depends_on("cuda@9:10.1", when="@0.8.1: +cuda")
-    depends_on("cuda@9:10.0", when="@:0.8.0 +cuda")
-
+    depends_on("cuda", when="@23.10.0: +cuda")
     depends_on("cuda", when="+nvcxx")
     depends_on("nvhpc@22.9:", when="+nvcxx", type="run")
 
     patch("allow-disable-find-cuda-23.10.0.patch", when="@23.10.0")
 
     conflicts(
-        "%gcc@:4",
-        when="@:0.9.0",
-        msg="AdaptiveCPP needs proper C++14 support to be built, %gcc is too old",
+        "%gcc@:8",
+        when="@23.10.0:",
+        msg="AdaptiveCPP needs proper C++17 support to be built, %gcc is too old",
     )
-    conflicts("%gcc@:8", when="@0.9.1:", msg="AdaptiveCPP needs proper C++17 support to be built, %gcc is too old")
     conflicts(
         "^llvm build_type=Debug",
         when="+cuda",
@@ -105,23 +107,33 @@ class Adaptivecpp(CMakePackage):
 
             # LLVM directory containing all installed CMake files
             # (e.g.: configs consumed by client projects)
-            llvm_cmake_dirs = filesystem.find(spec["llvm"].prefix, "LLVMExports.cmake")
+            llvm_cmake_dirs = filesystem.find(
+                spec["llvm"].prefix, "LLVMExports.cmake"
+            )
             if len(llvm_cmake_dirs) != 1:
                 raise InstallError(
                     "concretized llvm dependency must provide "
                     "a unique directory containing CMake client "
                     "files, found: {0}".format(llvm_cmake_dirs)
                 )
-            args.append("-DLLVM_DIR:String={0}".format(path.dirname(llvm_cmake_dirs[0])))
+            args.append(
+                "-DLLVM_DIR:String={0}".format(path.dirname(llvm_cmake_dirs[0]))
+            )
             # clang internal headers directory
-            llvm_clang_include_dirs = filesystem.find(spec["llvm"].prefix, "__clang_cuda_runtime_wrapper.h")
+            llvm_clang_include_dirs = filesystem.find(
+                spec["llvm"].prefix, "__clang_cuda_runtime_wrapper.h"
+            )
             if len(llvm_clang_include_dirs) != 1:
                 raise InstallError(
                     "concretized llvm dependency must provide a "
                     "unique directory containing clang internal "
                     "headers, found: {0}".format(llvm_clang_include_dirs)
                 )
-            args.append("-DCLANG_INCLUDE_PATH:String={0}".format(path.dirname(llvm_clang_include_dirs[0])))
+            args.append(
+                "-DCLANG_INCLUDE_PATH:String={0}".format(
+                    path.dirname(llvm_clang_include_dirs[0])
+                )
+            )
             # target clang++ executable
             llvm_clang_bin = path.join(spec["llvm"].prefix.bin, "clang++")
             if not filesystem.is_exe(llvm_clang_bin):
@@ -130,7 +142,9 @@ class Adaptivecpp(CMakePackage):
                     "valid clang++ executable, found invalid: "
                     "{0}".format(llvm_clang_bin)
                 )
-            args.append("-DCLANG_EXECUTABLE_PATH:String={0}".format(llvm_clang_bin))
+            args.append(
+                "-DCLANG_EXECUTABLE_PATH:String={0}".format(llvm_clang_bin)
+            )
 
         else:
             args += [
@@ -139,7 +153,12 @@ class Adaptivecpp(CMakePackage):
             ]
 
         if ("+cuda" in spec) or ("+nvcxx" in spec):
-            args += ["-DCUDA_TOOLKIT_ROOT_DIR:String={0}".format(spec["cuda"].prefix), "-DWITH_CUDA_BACKEND:Bool=TRUE"]
+            args += [
+                "-DCUDA_TOOLKIT_ROOT_DIR:String={0}".format(
+                    spec["cuda"].prefix
+                ),
+                "-DWITH_CUDA_BACKEND:Bool=TRUE",
+            ]
         else:
             args += [
                 "-DWITH_CUDA_BACKEND:Bool=FALSE",
@@ -147,7 +166,9 @@ class Adaptivecpp(CMakePackage):
             ]
 
         if "+nvcxx" in spec:
-            nvcpp_cands = glob(path.join(spec["nvhpc"].prefix, "**/nvc++"), recursive=True)
+            nvcpp_cands = glob(
+                path.join(spec["nvhpc"].prefix, "**/nvc++"), recursive=True
+            )
             if len(nvcpp_cands) < 1:
                 raise InstallError("Failed to find nvc++ executable")
             args.append("-DNVCXX_COMPILER={0}".format(nvcpp_cands[0]))
@@ -206,7 +227,9 @@ class Adaptivecpp(CMakePackage):
                     "found: {0}".format(so_paths)
                 )
             rpaths.add(path.dirname(so_paths[0]))
-            config["default-cuda-link-line"] += " " + " ".join("-rpath {0}".format(p) for p in rpaths)
+            config["default-cuda-link-line"] += " " + " ".join(
+                "-rpath {0}".format(p) for p in rpaths
+            )
 
         # Replace the installed config file
         with open(config_file_path, "w") as f:
