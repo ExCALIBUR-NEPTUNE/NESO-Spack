@@ -70,6 +70,8 @@ class Adaptivecpp(CMakePackage):
     depends_on("cuda", when="@23.10.0: +cuda")
     depends_on("cuda", when="+nvcxx")
     depends_on("nvhpc@22.9:", when="+nvcxx", type="run")
+    depends_on("opencl@3.0", when="+opencl")
+    depends_on("llvm +link_llvm_dylib", when="+opencl")
 
     patch("allow-disable-find-cuda-23.10.0.patch", when="@23.10.0")
 
@@ -94,8 +96,7 @@ class Adaptivecpp(CMakePackage):
             "-DWITH_CPU_BACKEND:Bool=TRUE",
             # TODO: no ROCm stuff available in spack yet
             "-DWITH_ROCM_BACKEND:Bool=FALSE",
-            "-DWITH_SSCP_COMPILER=FALSE",
-            "-DWITH_STDPAR_COMPILER=FALSE",
+            "-DWITH_STDPAR_COMPILER:Bool=FALSE",
         ]
 
         if "llvm" in spec:
@@ -183,9 +184,13 @@ class Adaptivecpp(CMakePackage):
             ]
 
         if "+opencl" in spec:
-            pass
+            args +=[
+                "-DWITH_SSCP_COMPILER:Bool=TRUE",
+                "-DWITH_OPENCL_BACKEND=ON",
+            ]
         else:
             args += [
+                "-DWITH_SSCP_COMPILER:Bool=FALSE",
                 "-DWITH_OPENCL_BACKEND=OFF",
             ]
 
