@@ -50,6 +50,7 @@ class Nektar(CMakePackage):
     depends_on("cmake@3.2:", type="build", when="+hdf5")
 
     depends_on("blas")
+    depends_on("zlib")
     depends_on("tinyxml", when="+tinyxml")
     depends_on("lapack")
     # Last version supporting C++11
