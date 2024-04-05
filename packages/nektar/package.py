@@ -16,12 +16,17 @@ class Nektar(CMakePackage):
 
     git = "https://gitlab.nektar.info/nektar/nektar.git"
 
-    version("5.4.0", commit="002bf62648ec667e10524ceb8a98bb1c21804130", preferred=True)
+    version(
+        "5.5.0-2024-03-14",
+        commit="8bc4b3095361e868b26219eff826d4f1902763df",
+        preferred=True,
+    )
+    version("5.4.0", commit="002bf62648ec667e10524ceb8a98bb1c21804130")
     version("5.3.0", commit="f286f809cfeb26cb73828c90a689a048898971d2")
     version("5.2.0-2022-09-03", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945")
 
     patch("add_compflow_solver_lib_v5.2.0_2022-09-03.patch", when="@5.2.0-2022-09-03:5.3")
-    patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0:")
+    patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0")
 
     variant("mpi", default=True, description="Builds with mpi support")
     variant("fftw", default=True, description="Builds with fftw support")
@@ -48,6 +53,7 @@ class Nektar(CMakePackage):
 
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
+    depends_on("py-setuptools",when="@5.5.0-2024-03-14")
 
     depends_on("blas")
     depends_on("zlib")
@@ -86,6 +92,7 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_BUILD_DEMOS=%s" % hasfeature("+demos"))
         args.append("-DNEKTAR_BUILD_PYTHON=%s" % hasfeature("+python"))
         args.append("-DNEKTAR_BUILD_SOLVERS=ON")
+        args.append("-DNEKTAR_BUILD_SOLVER_LIBS=ON")
         args.append("-DNEKTAR_BUILD_UTILITIES=ON")
         args.append("-DNEKTAR_ERROR_ON_WARNINGS=OFF")
         args.append("-DNEKTAR_SOLVER_ACOUSTIC=%s" % hasfeature("+acoustic_solver"))
@@ -116,9 +123,18 @@ class Nektar(CMakePackage):
         super(Nektar, self).install(spec, prefix)
         if "+python" in spec:
             python = which("python")
-            with fs.working_dir(self.build_directory):
+            if spec.satisfies("@5.5.0-2024-03-14:"):
+                python_build_directory = os.path.join(self.build_directory, "python")
+            else:
+                python_build_directory = self.build_directory
+                print(
+                    "Installing Python bindings using "
+                    + python_build_directory
+                    + "/setup.py"
+                )
+            with fs.working_dir(python_build_directory):
                 python("setup.py", "install", "--prefix", prefix)
-    
+
     def setup_run_environment(self, env):
         env.append_path(
             "CMAKE_PREFIX_PATH",
