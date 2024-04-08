@@ -32,6 +32,11 @@ class Adaptivecpp(CMakePackage):
     provides("sycl")
 
     version(
+        "24.02.0",
+        commit="974adc33ea5a35dd8b5be68c7a744b37482b8b64",
+        submodules=True,
+    )
+    version(
         "23.10.0",
         commit="3952b468c9da89edad9dff953cdcab0a3c3bf78c",
         submodules=True,
@@ -184,7 +189,7 @@ class Adaptivecpp(CMakePackage):
             ]
 
         if "+opencl" in spec:
-            args +=[
+            args += [
                 "-DWITH_SSCP_COMPILER:Bool=TRUE",
                 "-DWITH_OPENCL_BACKEND=ON",
             ]
@@ -199,7 +204,12 @@ class Adaptivecpp(CMakePackage):
     @run_after("install")
     def filter_config_file(self):
 
-        config_file_paths = filesystem.find(self.prefix, "syclcc.json")
+        # The config file name and location depends on version:
+        # pre-24.02.0: syclcc.json
+        # post-24.02.0: acpp-core.json
+        config_file_paths = filesystem.find(
+            self.prefix, ("syclcc.json", "acpp-core.json")
+        )
         if len(config_file_paths) != 1:
             raise InstallError(
                 "installed AdaptiveCPP must provide a unique compiler driver "
