@@ -242,9 +242,11 @@ class Adaptivecpp(CMakePackage):
                     "found: {0}".format(so_paths)
                 )
             rpaths.add(path.dirname(so_paths[0]))
-            config["default-cuda-link-line"] += " " + " ".join(
-                "-rpath {0}".format(p) for p in rpaths
-            )
+            default_cuda_link_line = "default-cuda-link-line"
+            if default_cuda_link_line in config.keys():
+                config[default_cuda_link_line] += " " + " ".join(
+                    "-rpath {0}".format(p) for p in rpaths
+                )
 
         # Replace the installed config file
         with open(config_file_path, "w") as f:
