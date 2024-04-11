@@ -10,7 +10,11 @@ class NesoParticles(CMakePackage):
 
     git = "https://github.com/ExCALIBUR-NEPTUNE/NESO-Particles.git"
 
-    version("0.1.0", commit="2e1b1aac6f4f9c22b31787cf300fcc2b4914cbe1", preferred=True)
+    version("0.4.0", commit="c615974661e0f4c8d9db709d65d27cc2927bbfaf", preferred=True)
+    version("0.3.1", commit="9c6b4626645f6aaaca478e4798f2fdee5dd2675b")
+    version("0.3.0", commit="cb55184bb7196c210d8c3f4397f4a29808acd038")
+    version("0.2.0", commit="2e1b1aac6f4f9c22b31787cf300fcc2b4914cbe1")
+    version("0.1.0", commit="bae6ee91fe6558a0d7eba040dd93db34eda348a8")
     version("working", branch="main")
     version("main", branch="main")
 
@@ -22,6 +26,8 @@ class NesoParticles(CMakePackage):
     # Non-SYCL dependencies
     depends_on("hdf5 +mpi +hl", type=("build", "link", "run"))
     depends_on("cmake@3.21:", type="build")
+    depends_on("cmake@3.24:", type="build", when="@main")
+    depends_on("cmake@3.24:", type="build", when="@working")
     depends_on("googletest@1.10.0: +gmock", type=("build", "link", "run"))
 
     # Depend on a sycl implementation - with workarounds for intel packaging.
