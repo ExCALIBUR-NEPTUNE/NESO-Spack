@@ -109,6 +109,7 @@ class Nektar(CMakePackage):
 
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
+    depends_on("py-setuptools", when="@master")
 
     depends_on("blas")
     depends_on("zlib")
@@ -149,6 +150,7 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_BUILD_DEMOS=%s" % hasfeature("+demos"))
         args.append("-DNEKTAR_BUILD_PYTHON=%s" % hasfeature("+python"))
         args.append("-DNEKTAR_BUILD_SOLVERS=ON")
+        args.append("-DNEKTAR_BUILD_SOLVER_LIBS=ON")
         args.append("-DNEKTAR_BUILD_UTILITIES=ON")
         args.append("-DNEKTAR_ERROR_ON_WARNINGS=OFF")
         args.append("-DNEKTAR_SOLVER_ACOUSTIC=%s" % hasfeature("+acoustic_solver"))
@@ -181,7 +183,16 @@ class Nektar(CMakePackage):
         super(Nektar, self).install(spec, prefix)
         if "+python" in spec:
             python = which("python")
-            with fs.working_dir(self.build_directory):
+            if spec.satisfies("@master"):
+                python_build_directory = os.path.join(self.build_directory, "python")
+            else:
+                python_build_directory = self.build_directory
+            print(
+                "Installing Python bindings using "
+                + python_build_directory
+                + "/setup.py"
+            )
+            with fs.working_dir(python_build_directory):
                 python("setup.py", "install", "--prefix", prefix)
 
     def setup_run_environment(self, env):
