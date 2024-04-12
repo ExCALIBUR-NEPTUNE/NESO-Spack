@@ -24,7 +24,7 @@ class Nektar(CMakePackage):
     patch(
         "add_compflow_solver_lib_v5.2.0_2022-09-03.patch", when="@5.2.0-2022-09-03:5.3"
     )
-    patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0:")
+    patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0")
 
     variant("mpi", default=True, description="Builds with mpi support")
     variant("fftw", default=True, description="Builds with fftw support")
