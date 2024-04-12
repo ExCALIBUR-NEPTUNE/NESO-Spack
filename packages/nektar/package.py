@@ -20,31 +20,91 @@ class Nektar(CMakePackage):
     version("5.3.0", commit="f286f809cfeb26cb73828c90a689a048898971d2")
     version("5.2.0-2022-09-03", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945")
 
-    patch("add_compflow_solver_lib_v5.2.0_2022-09-03.patch", when="@5.2.0-2022-09-03:5.3")
+    patch(
+        "add_compflow_solver_lib_v5.2.0_2022-09-03.patch", when="@5.2.0-2022-09-03:5.3"
+    )
     patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0:")
 
     variant("mpi", default=True, description="Builds with mpi support")
     variant("fftw", default=True, description="Builds with fftw support")
     variant("arpack", default=True, description="Builds with arpack support")
     variant("tinyxml", default=True, description="Builds with external tinyxml support")
-    variant("hdf5", default=False, description="Builds with hdf5 support (conflicts with builtin?)")
-    variant("scotch", default=True, description="Builds with scotch partitioning support")
+    variant(
+        "hdf5",
+        default=False,
+        description="Builds with hdf5 support (conflicts with builtin?)",
+    )
+    variant(
+        "scotch", default=True, description="Builds with scotch partitioning support"
+    )
     variant("demos", default=False, description="Build demonstration codes")
     variant("python", default=True, description="Enable python support")
     # Solver variants
-    variant("acoustic_solver", default=False, description="Builds an executable associated with the Acoustic solver")
-    variant("adr_solver", default=False, description="Builds an executable associated with the ADR solver")
-    variant("cardiac_solver", default=False, description="Builds an executable associated with the Cardiac electrophysiology solver")
-    variant("compflow_solver", default=False, description="Builds an executable associated with the CompressibleFlow solver")
-    variant("diff_solver", default=False, description="Builds an executable associated with the Diffusion solver")
-    variant("dummy_solver", default=False, description="Builds an executable associated with the Dummy solver")
-    variant("elasticity_solver", default=False, description="Builds an executable associated with the Elasticity solver")
-    variant("imgwarp_solver", default=False, description="Builds an executable associated with the Image Warping solver")
-    variant("ins_solver", default=False, description="Builds an executable associated with the Incompressible Navier Stokes solver")
-    variant("mmf_solver", default=False, description="Builds an executable associated with the MMF solver")
-    variant("pulsewave_solver", default=False, description="Builds an executable associated with the Pulse Wave solver")
-    variant("shwater_solver", default=False, description="Builds an executable associated with the Shallow Water solver")
-    variant("vortexwave_solver", default=False, description="Builds an executable associated with the Vortex Wave solver")
+    variant(
+        "acoustic_solver",
+        default=False,
+        description="Builds an executable associated with the Acoustic solver",
+    )
+    variant(
+        "adr_solver",
+        default=False,
+        description="Builds an executable associated with the ADR solver",
+    )
+    variant(
+        "cardiac_solver",
+        default=False,
+        description="Builds an executable associated with the Cardiac electrophysiology solver",
+    )
+    variant(
+        "compflow_solver",
+        default=False,
+        description="Builds an executable associated with the CompressibleFlow solver",
+    )
+    variant(
+        "diff_solver",
+        default=False,
+        description="Builds an executable associated with the Diffusion solver",
+    )
+    variant(
+        "dummy_solver",
+        default=False,
+        description="Builds an executable associated with the Dummy solver",
+    )
+    variant(
+        "elasticity_solver",
+        default=False,
+        description="Builds an executable associated with the Elasticity solver",
+    )
+    variant(
+        "imgwarp_solver",
+        default=False,
+        description="Builds an executable associated with the Image Warping solver",
+    )
+    variant(
+        "ins_solver",
+        default=False,
+        description="Builds an executable associated with the Incompressible Navier Stokes solver",
+    )
+    variant(
+        "mmf_solver",
+        default=False,
+        description="Builds an executable associated with the MMF solver",
+    )
+    variant(
+        "pulsewave_solver",
+        default=False,
+        description="Builds an executable associated with the Pulse Wave solver",
+    )
+    variant(
+        "shwater_solver",
+        default=False,
+        description="Builds an executable associated with the Shallow Water solver",
+    )
+    variant(
+        "vortexwave_solver",
+        default=False,
+        description="Builds an executable associated with the Vortex Wave solver",
+    )
 
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
@@ -75,7 +135,9 @@ class Nektar(CMakePackage):
 
     extends("python@3:", when="+python")
 
-    conflicts("+hdf5", when="~mpi", msg="Nektar's hdf5 output is for parallel builds only")
+    conflicts(
+        "+hdf5", when="~mpi", msg="Nektar's hdf5 output is for parallel builds only"
+    )
 
     def cmake_args(self):
         args = []
@@ -91,7 +153,9 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_SOLVER_ACOUSTIC=%s" % hasfeature("+acoustic_solver"))
         args.append("-DNEKTAR_SOLVER_ADR=%s" % hasfeature("+adr_solver"))
         args.append("-DNEKTAR_SOLVER_CARDIAC_EP=%s" % hasfeature("+cardiac_solver"))
-        args.append("-DNEKTAR_SOLVER_COMPRESSIBLE_FLOW=%s" % hasfeature("+compflow_solver"))
+        args.append(
+            "-DNEKTAR_SOLVER_COMPRESSIBLE_FLOW=%s" % hasfeature("+compflow_solver")
+        )
         args.append("-DNEKTAR_SOLVER_DIFFUSION=%s" % hasfeature("+diff_solver"))
         args.append("-DNEKTAR_SOLVER_DUMMY=%s" % hasfeature("+dummy_solver"))
         args.append("-DNEKTAR_SOLVER_ELASTICITY=%s" % hasfeature("+elasticity_solver"))
@@ -118,13 +182,18 @@ class Nektar(CMakePackage):
             python = which("python")
             with fs.working_dir(self.build_directory):
                 python("setup.py", "install", "--prefix", prefix)
-    
+
     def setup_run_environment(self, env):
         env.append_path(
             "CMAKE_PREFIX_PATH",
-            os.path.join(self.spec.prefix, os.path.join("lib64", os.path.join("nektar++", "cmake"))),
+            os.path.join(
+                self.spec.prefix,
+                os.path.join("lib64", os.path.join("nektar++", "cmake")),
+            ),
         )
-        env.append_path("PYTHONPATH", os.path.abspath(os.path.join(self.spec.prefix, "build_tree")))
+        env.append_path(
+            "PYTHONPATH", os.path.abspath(os.path.join(self.spec.prefix, "build_tree"))
+        )
 
     def setup_dependent_run_environment(self, env, dependent_spec):
         self.setup_run_environment(env)
@@ -135,4 +204,7 @@ class Nektar(CMakePackage):
     def add_files_to_view(self, view, merge_map, skip_if_exists=True):
         super(Nektar, self).add_files_to_view(view, merge_map, skip_if_exists)
         path = self.view_destination(view)
-        view.link(os.path.join(path, "lib64", "nektar++"), os.path.join(path, "lib", "nektar++"))
+        view.link(
+            os.path.join(path, "lib64", "nektar++"),
+            os.path.join(path, "lib", "nektar++"),
+        )
