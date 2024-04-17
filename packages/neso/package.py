@@ -6,6 +6,7 @@
 from os import environ
 from spack.package import *
 from spack.error import SpecError
+import spack
 from warnings import warn
 
 
@@ -25,6 +26,34 @@ def _validate_sanitizer_variant(pkg_name, variant_name, values):
         raise SpecError(
             "'memory' sanitizer can not be combined with 'address' or 'leak' sanitizers"
         )
+
+
+def _get_pkg_versions(pkg_name):
+    """Get a list of 'safe' (already checksummed) available versions of a Spack package
+    Equivalent to 'spack versions <pkg_name>' on the command line"""
+    pkg_spec = spack.spec.Spec(pkg_name)
+    spack_version = spack.spack_version_info
+    if spack_version[1] <= 20:
+        pkg_cls = spack.repo.path.get_pkg_class(pkg_name)
+    else:
+        pkg_cls = spack.repo.PATH.get_pkg_class(pkg_name)
+    pkg = pkg_cls(pkg_spec)
+    return [vkey.string for vkey in pkg.versions.keys()]
+
+
+def _restrict_to_version(versions, idx):
+    """Return a version constraint that excludes all but
+    versions[idx]. Requires versions to be sorted in descending
+    order."""
+    if idx == 0:
+        return ":" + versions[1]
+    elif idx == len(versions) - 1:
+        return versions[-2] + ":"
+    else:
+        return ":" + versions[idx + 1] + "," + versions[idx - 1] + ":"
+
+
+AVAILABLE_ONEAPI_VERSIONS = _get_pkg_versions("intel-oneapi-compilers")
 
 
 class Neso(CMakePackage):
@@ -66,20 +95,17 @@ class Neso(CMakePackage):
     depends_on("mpi", type=("build", "run"))
 
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
-    # This should really be set in the MKL package itself...
-    conflicts(
-        "^intel-oneapi-mkl@2022.2",
-        when="%oneapi@:2022.1",
-        msg="Use the same version of MKL and OneAPI compilers.",
-    )
-    conflicts(
-        "^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers."
-    )
-    conflicts(
-        "+nvcxx",
-        when="%oneapi",
-        msg="Nvidia compilation option can only be used with gcc compilers",
-    )
+    conflicts("^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers.")
+    conflicts("+nvcxx", when="%oneapi", msg="Nvidia compilation option can only be used with gcc compilers")
+    # Should only use MKL with the same release of OneAPI
+    # compilers. Ideally this would have been set in the MKL package
+    # itself.
+    for idx, v in enumerate(AVAILABLE_ONEAPI_VERSIONS):
+        conflicts(
+            "^intel-oneapi-mkl@" + _restrict_to_version(AVAILABLE_ONEAPI_VERSIONS, idx),
+            when="%oneapi@" + v,
+            msg="OneAPI compilers and MKL must be from the same release.",
+        )
 
     def cmake_args(self):
         # Ideally we would only build the tests when Spack is going to
