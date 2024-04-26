@@ -18,11 +18,10 @@ class Nektar(CMakePackage):
 
     version("master", branch="master")
     version("5.4.0", commit="002bf62648ec667e10524ceb8a98bb1c21804130", preferred=True)
-    version("5.3.0", commit="f286f809cfeb26cb73828c90a689a048898971d2")
     version("5.3.0-2022-09-03", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945")
 
     patch(
-        "add_compflow_solver_lib_v5.3.0_2022-09-03.patch", when="@5.3.0-2022-09-03:5.3"
+        "add_compflow_solver_lib_v5.3.0_2022-09-03.patch", when="@5.3.0-2022-09-03"
     )
     patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0")
 
