@@ -15,7 +15,11 @@ def _get_pkg_versions(pkg_name):
     """Get a list of 'safe' (already checksummed) available versions of a Spack package
     Equivalent to 'spack versions <pkg_name>' on the command line"""
     pkg_spec = spack.spec.Spec(pkg_name)
-    pkg_cls = spack.repo.path.get_pkg_class(pkg_name)
+    spack_version = spack.spack_version_info
+    if spack_version[1] <= 20:
+        pkg_cls = spack.repo.path.get_pkg_class(pkg_name)
+    else:
+        pkg_cls = spack.repo.PATH.get_pkg_class(pkg_name)
     pkg = pkg_cls(pkg_spec)
     return [vkey.string for vkey in pkg.versions.keys()]
 
