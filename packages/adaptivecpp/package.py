@@ -73,8 +73,7 @@ class Adaptivecpp(CMakePackage):
     depends_on("llvm@9: +clang", when="+cuda")
     depends_on("llvm@9: +clang", when="+omp_llvm")
     depends_on("cuda", when="@23.10.0: +cuda")
-    depends_on("cuda", when="+nvcxx")
-    depends_on("nvhpc@22.9:", when="+nvcxx", type="run")
+    depends_on("nvhpc@22.9:", when="+nvcxx", type="build")
     depends_on("opencl@3.0", when="+opencl")
     depends_on("llvm +link_llvm_dylib", when="+opencl")
 
