@@ -67,6 +67,7 @@ class Neso(CMakePackage):
 
     maintainers = ["jwscook", "will-saunders-ukaea", "cmacmackin"]
 
+    version("0.1.0", commit="db278a461f9f1901c23725c9521150dd9e61d389", preferred=True)
     version("working", branch="main")
     version("main", branch="main")
 
@@ -87,11 +88,17 @@ class Neso(CMakePackage):
     depends_on("sycl", type=("build", "link"))
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     depends_on("fftw-api", type="link")
+    # Nektar dependency
     depends_on("nektar@5.3.0-2022-09-03:+compflow_solver", type="link")
+    depends_on("nektar@5.3.0-2022-09-03 +compflow_solver", when="@0.1.0", type="link")
+
     depends_on("cmake@3.24:", type="build")
     depends_on("boost@1.74:", type="test")
     depends_on("googletest+gmock", type="link")
+    # NESO-Particles dependency
     depends_on("neso-particles")
+    depends_on("neso-particles@0.5.0:", when="@0.1.0")
+
     depends_on("mpi", type=("build", "run"))
 
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
