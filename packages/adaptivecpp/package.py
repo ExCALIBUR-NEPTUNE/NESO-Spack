@@ -78,6 +78,7 @@ class Adaptivecpp(CMakePackage):
     depends_on("opencl@3.0", when="+opencl")
 
     patch("allow-disable-find-cuda-23.10.0.patch", when="@23.10.0")
+    patch("macos-non-apple-clang-24.02.0.patch", when="@24.02.0")
 
     conflicts(
         "%gcc@:8",
