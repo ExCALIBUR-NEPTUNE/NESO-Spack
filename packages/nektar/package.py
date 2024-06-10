@@ -17,6 +17,8 @@ class Nektar(CMakePackage):
     git = "https://gitlab.nektar.info/nektar/nektar.git"
 
     version("master", branch="master", preferred=True)
+    version("5.6.0", commit="bb87ccd8ad00fe0aec9c9e74b812b777186e1691")
+    version("5.5.0", commit="4365d5d7156139f238db962deae5eb25e0437d12")
     version("5.4.0", commit="002bf62648ec667e10524ceb8a98bb1c21804130")
     version("5.3.0-2022-09-03", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945")
 
@@ -109,6 +111,7 @@ class Nektar(CMakePackage):
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
     depends_on("py-setuptools", when="@master")
+    depends_on("py-setuptools", when="@5.6.0:")
 
     depends_on("blas")
     depends_on("zlib")
@@ -182,7 +185,7 @@ class Nektar(CMakePackage):
         super(Nektar, self).install(spec, prefix)
         if "+python" in spec:
             python = which("python")
-            if spec.satisfies("@master"):
+            if spec.satisfies("@master") or spec.satisfies("@5.6.0:"):
                 python_build_directory = os.path.join(self.build_directory, "python")
             else:
                 python_build_directory = self.build_directory
