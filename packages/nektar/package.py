@@ -17,6 +17,8 @@ class Nektar(CMakePackage):
     git = "https://gitlab.nektar.info/nektar/nektar.git"
 
     version("master", branch="master", preferred=True)
+    version("5.6.0", commit="bb87ccd8ad00fe0aec9c9e74b812b777186e1691")
+    version("5.5.0", commit="4365d5d7156139f238db962deae5eb25e0437d12")
     version("5.4.0", commit="002bf62648ec667e10524ceb8a98bb1c21804130")
     version("5.3.0-2022-09-03", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945")
 
