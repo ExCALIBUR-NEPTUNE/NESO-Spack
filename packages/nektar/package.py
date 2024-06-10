@@ -111,7 +111,7 @@ class Nektar(CMakePackage):
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
     depends_on("py-setuptools", when="@master")
-    depends_on("py-setuptools", when="@5.5.0:")
+    depends_on("py-setuptools", when="@5.6.0:")
 
     depends_on("blas")
     depends_on("zlib")
@@ -185,7 +185,7 @@ class Nektar(CMakePackage):
         super(Nektar, self).install(spec, prefix)
         if "+python" in spec:
             python = which("python")
-            if spec.satisfies("@master") or spec.satisfies("@5.5.0:"):
+            if spec.satisfies("@master") or spec.satisfies("@5.6.0:"):
                 python_build_directory = os.path.join(self.build_directory, "python")
             else:
                 python_build_directory = self.build_directory
