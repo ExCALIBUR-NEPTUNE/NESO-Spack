@@ -263,7 +263,6 @@ class Adaptivecpp(CMakePackage):
         if "llvm" in self.spec:
             # Add the rpaths for llvm c++
             default_cuda_link_line = "default-cuda-link-line"
-            tmp_config = cuda_config if cuda_config is not None else config
             if cuda_config is not None:
                 if default_cuda_link_line in cuda_config.keys():
                     cuda_config[default_cuda_link_line] += " " + " ".join(
