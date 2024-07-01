@@ -237,7 +237,7 @@ class Adaptivecpp(CMakePackage):
         #    ptx backend
         
         # Find the rpaths for cpp
-        rpaths_cpp = set()
+        rpaths = set()
         if "llvm" in self.spec:
             so_paths = filesystem.find(self.spec["llvm"].prefix, "libc++.so")
             if len(so_paths) != 1:
@@ -246,7 +246,7 @@ class Adaptivecpp(CMakePackage):
                     "unique directory containing libc++.so, "
                     "found: {0}".format(so_paths)
                 )
-            rpaths_cpp.add(path.dirname(so_paths[0]))
+            rpaths.add(path.dirname(so_paths[0]))
             so_paths = filesystem.find(self.spec["llvm"].prefix, "libc++abi.so")
             if len(so_paths) != 1:
                 raise InstallError(
@@ -254,31 +254,30 @@ class Adaptivecpp(CMakePackage):
                     "unique directory containing libc++abi.so, "
                     "found: {0}".format(so_paths)
                 )
-            rpaths_cpp.add(path.dirname(so_paths[0]))
+            rpaths.add(path.dirname(so_paths[0]))
 
             # the omp llvm backend may link against the libomp.so in llvm
             so_paths = filesystem.find(self.spec["llvm"].prefix, "libomp.so")
-            rpaths_cpp.add(path.dirname(so_paths[0]))
+            rpaths.add(path.dirname(so_paths[0]))
         
-        if "llvm" in self.spec:
             # Add the rpaths for llvm c++
             default_cuda_link_line = "default-cuda-link-line"
             if cuda_config is not None:
                 if default_cuda_link_line in cuda_config.keys():
                     cuda_config[default_cuda_link_line] += " " + " ".join(
-                        "-rpath {0}".format(p) for p in rpaths_cpp
+                        "-rpath {0}".format(p) for p in rpaths
                     )
             else:
                 if default_cuda_link_line in config.keys():
                     config[default_cuda_link_line] += " " + " ".join(
-                        "-rpath {0}".format(p) for p in rpaths_cpp
+                        "-rpath {0}".format(p) for p in rpaths
                     )
 
             # add the rpaths for llvm omp
             default_omp_link_line = "default-omp-link-line"
             if default_omp_link_line in config.keys():
                 config[default_omp_link_line] += " " + " ".join(
-                        "-Wl,-rpath {0}".format(p) for p in rpaths_cpp
+                        "-Wl,-rpath {0}".format(p) for p in rpaths
                     )
 
         else:
