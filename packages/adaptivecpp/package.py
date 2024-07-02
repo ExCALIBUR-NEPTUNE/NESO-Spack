@@ -70,7 +70,7 @@ class Adaptivecpp(CMakePackage):
     )
     depends_on("python@3:")
     # depends_on("llvm@8: +clang", when="~cuda")
-    depends_on("llvm@9: +clang", when="+cuda")
+    depends_on("llvm@9: +clang", when="+cuda", type=("build", "link", "run"))
     depends_on("llvm@9: +clang", when="+omp_llvm")
     depends_on("cuda", when="@23.10.0: +cuda")
     depends_on("cuda", when="+nvcxx")
@@ -218,14 +218,27 @@ class Adaptivecpp(CMakePackage):
         config_file_path = config_file_paths[0]
         with open(config_file_path) as f:
             config = json.load(f)
+        
+        # There may be a separate cuda config file
+        cuda_config = None
+        cuda_config_file_path = None
+        config_file_paths = filesystem.find(
+            self.prefix, ("acpp-cuda.json",)
+        )
+        if len(config_file_paths) > 0:
+            cuda_config_file_path = config_file_paths[0]
+            with open(cuda_config_file_path) as f:
+                cuda_config = json.load(f)
+
         # 1. Fix compiler: use the real one in place of the Spack wrapper
         config["default-cpu-cxx"] = self.compiler.cxx
         # 2. Fix stdlib: we need to make sure cuda-enabled binaries find
         #    the libc++.so and libc++abi.so dyn linked to the sycl
         #    ptx backend
-
+        
+        # Find the rpaths for cpp
+        rpaths = set()
         if "llvm" in self.spec:
-            rpaths = set()
             so_paths = filesystem.find(self.spec["llvm"].prefix, "libc++.so")
             if len(so_paths) != 1:
                 raise InstallError(
@@ -242,12 +255,44 @@ class Adaptivecpp(CMakePackage):
                     "found: {0}".format(so_paths)
                 )
             rpaths.add(path.dirname(so_paths[0]))
+
+            # the omp llvm backend may link against the libomp.so in llvm
+            so_paths = filesystem.find(self.spec["llvm"].prefix, "libomp.so")
+            rpaths.add(path.dirname(so_paths[0]))
+        
+            # Add the rpaths for llvm c++
             default_cuda_link_line = "default-cuda-link-line"
-            if default_cuda_link_line in config.keys():
-                config[default_cuda_link_line] += " " + " ".join(
-                    "-rpath {0}".format(p) for p in rpaths
-                )
+            if cuda_config is not None:
+                if default_cuda_link_line in cuda_config.keys():
+                    cuda_config[default_cuda_link_line] += " " + " ".join(
+                        "-rpath {0}".format(p) for p in rpaths
+                    )
+            else:
+                if default_cuda_link_line in config.keys():
+                    config[default_cuda_link_line] += " " + " ".join(
+                        "-rpath {0}".format(p) for p in rpaths
+                    )
+
+            # add the rpaths for llvm omp
+            default_omp_link_line = "default-omp-link-line"
+            if default_omp_link_line in config.keys():
+                config[default_omp_link_line] += " " + " ".join(
+                        "-Wl,-rpath {0}".format(p) for p in rpaths
+                    )
+
+        else:
+            # If llvm is not in the spec then explicitly use "omp.library-only"
+            # as the default backend.
+            default_targets = "default-targets"
+            if default_targets in config.keys():
+                config[default_targets] = "omp.library-only"
 
         # Replace the installed config file
         with open(config_file_path, "w") as f:
             json.dump(config, f, indent=2)
+
+        # replace the cuda config if it exists
+        if cuda_config is not None:
+            with open(cuda_config_file_path, "w") as f:
+                json.dump(cuda_config, f, indent=2)
+
