@@ -1,0 +1,2325 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 34c7e8ad4..8408a1a86 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -303,6 +303,11 @@ IF (NEKTAR_BUILD_LIBRARY)
+     INCLUDE_DIRECTORIES(library)
+ ENDIF()
+ 
++# Both normal libraries and solver libraries can modify NEKTAR++_LIBRARIES - reset it if we're building either
++if (NEKTAR_BUILD_LIBRARY OR NEKTAR_BUILD_SOLVERS)
++    SET(NEKTAR++_LIBRARIES "" CACHE INTERNAL "")
++ENDIF()
++
+ INCLUDE_DIRECTORIES(utilities)
+ ADD_SUBDIRECTORY(utilities)
+ 
+@@ -310,9 +315,6 @@ INCLUDE_DIRECTORIES(solvers)
+ ADD_SUBDIRECTORY(solvers)
+ 
+ IF (NEKTAR_BUILD_LIBRARY)
+-    # List of Nektar++ libraries will be rebuilt every configuration.
+-    SET(NEKTAR++_LIBRARIES "" CACHE INTERNAL "")
+-
+     ADD_SUBDIRECTORY(library)
+     INSTALL(EXPORT Nektar++Libraries DESTINATION ${NEKTAR_CMAKE_DIR} COMPONENT dev)
+ ENDIF (NEKTAR_BUILD_LIBRARY)
+diff --git a/cmake/NektarCommon.cmake b/cmake/NektarCommon.cmake
+index 01274b4fe..5836744f4 100644
+--- a/cmake/NektarCommon.cmake
++++ b/cmake/NektarCommon.cmake
+@@ -201,37 +201,43 @@ ENDMACRO()
+ #
+ # Arguments:
+ #   - `name`: target name to construct
+-#   - `SUMMARY`: a brief summary of the library
+ #   - `DESCRIPTION`: a more detailed description of the library
++#   - `LINK_MODE`: mode in which to link dependencies: accepts public (default) interface or private; case insensitive
++#   - `SUMMARY`: a brief summary of the library
++#   - `TARGET_SUFFIX`: Optional suffix to attach to the target name. Allows different targets to share the same (output) `name`
+ #   - `DEPENDS`: a list of components on which this target depends on
+ #   - `SOURCES`: a list of source files for this target
+ #   - `HEADERS`: a list of header files for this target. These will be
+ #     automatically put into a `dev` package.
+ #
+ MACRO(ADD_NEKTAR_LIBRARY name)
+-    CMAKE_PARSE_ARGUMENTS(NEKLIB "" "DESCRIPTION;SUMMARY" "DEPENDS;SOURCES;HEADERS" ${ARGN})
++    CMAKE_PARSE_ARGUMENTS(NEKLIB "" "DESCRIPTION;LINK_MODE;SUMMARY;TARGET_SUFFIX" "DEPENDS;SOURCES;HEADERS" ${ARGN})
+ 
+-    ADD_LIBRARY(${name} ${NEKTAR_LIBRARY_TYPE} ${NEKLIB_SOURCES} ${NEKLIB_HEADERS})
++    SET (NEKLIB_TARGET_NAME ${name}${NEKLIB_TARGET_SUFFIX})
++    ADD_LIBRARY(${NEKLIB_TARGET_NAME} ${NEKTAR_LIBRARY_TYPE} ${NEKLIB_SOURCES} ${NEKLIB_HEADERS})
+ 
+     # Infer component name from lower-case library name, variables should use
+     # upper-case.
+-    STRING(TOLOWER ${name} NEKLIB_COMPONENT)
+-    STRING(TOUPPER ${name} NEKLIB_COMPVAR)
++    STRING(TOLOWER ${NEKLIB_TARGET_NAME} NEKLIB_COMPONENT)
++    STRING(TOUPPER ${NEKLIB_TARGET_NAME} NEKLIB_COMPVAR)
+ 
+     # Add name to a list so that we know for constructing dependencies.
+-    SET(NEKTAR++_LIBRARIES ${NEKTAR++_LIBRARIES} ${name} CACHE INTERNAL "")
++    SET(NEKTAR++_LIBRARIES ${NEKTAR++_LIBRARIES} ${NEKLIB_TARGET_NAME} CACHE INTERNAL "")
+ 
+-    SET_PROPERTY(TARGET ${name} PROPERTY FOLDER ${NEKLIB_COMPONENT})
+-    SET_PROPERTY(TARGET ${name} PROPERTY VERSION ${NEKTAR_VERSION})
++    SET_PROPERTY(TARGET ${NEKLIB_TARGET_NAME} PROPERTY FOLDER ${NEKLIB_COMPONENT})
++    SET_PROPERTY(TARGET ${NEKLIB_TARGET_NAME} PROPERTY VERSION ${NEKTAR_VERSION})
++    # Output name is always ${name}, even if a suffix was used for the target name
++    SET_PROPERTY(TARGET ${NEKLIB_TARGET_NAME} PROPERTY OUTPUT_NAME ${name})
+ 
+-    SET_COMMON_PROPERTIES(${name})
++    SET_COMMON_PROPERTIES(${NEKLIB_TARGET_NAME})
+ 
+-    INSTALL(TARGETS ${name}
++    INSTALL(TARGETS ${NEKLIB_TARGET_NAME}
+         EXPORT Nektar++Libraries
+         RUNTIME DESTINATION ${NEKTAR_BIN_DIR} COMPONENT ${NEKLIB_COMPONENT} OPTIONAL
+         ARCHIVE DESTINATION ${NEKTAR_LIB_DIR} COMPONENT ${NEKLIB_COMPONENT} OPTIONAL
+         LIBRARY DESTINATION ${NEKTAR_LIB_DIR} COMPONENT ${NEKLIB_COMPONENT} OPTIONAL)
+ 
++    # Headers always installed in <include_dir>/${name} rather than <include_dir>/${NEKLIB_TARGET_NAME}
+     FOREACH(HEADER ${NEKLIB_HEADERS})
+         STRING(REGEX MATCH "(.*)[/\\]" DIR ${HEADER})
+         INSTALL(FILES ${HEADER}
+@@ -241,7 +247,21 @@ MACRO(ADD_NEKTAR_LIBRARY name)
+ 
+     # If we have dependencies then link against them.
+     IF(NEKLIB_DEPENDS)
+-        TARGET_LINK_LIBRARIES(${name} LINK_PUBLIC ${NEKLIB_DEPENDS})
++        IF (NEKLIB_LINK_MODE)
++            string(TOLOWER "${NEKLIB_LINK_MODE}" link_mode)
++        ELSE()
++            set(link_mode "public")
++        ENDIF()
++
++        IF(link_mode STREQUAL "private")
++            TARGET_LINK_LIBRARIES(${NEKLIB_TARGET_NAME} PRIVATE ${NEKLIB_DEPENDS})
++        ELSEIF(link_mode STREQUAL "interface")
++            TARGET_LINK_LIBRARIES(${NEKLIB_TARGET_NAME} INTERFACE ${NEKLIB_DEPENDS})
++        ELSEIF(link_mode STREQUAL "public")
++            TARGET_LINK_LIBRARIES(${NEKLIB_TARGET_NAME} LINK_PUBLIC ${NEKLIB_DEPENDS})
++        ELSE()
++            message(FATAL_ERROR "ADD_NEKTAR_LIBRARY: Unknown link mode [${NEKLIB_LINK_MODE}] for [${NEKLIB_TARGET_NAME}]")
++        ENDIF()
+     ENDIF()
+ ENDMACRO()
+ 
+diff --git a/library/Collections/CoalescedGeomData.cpp b/library/Collections/CoalescedGeomData.cpp
+index 284ee45d4..2349092a1 100644
+--- a/library/Collections/CoalescedGeomData.cpp
++++ b/library/Collections/CoalescedGeomData.cpp
+@@ -37,8 +37,6 @@
+ 
+ #include <LocalRegions/Expansion.h>
+ 
+-using namespace std;
+-
+ namespace Nektar
+ {
+ namespace Collections
+@@ -53,7 +51,7 @@ CoalescedGeomData::~CoalescedGeomData(void)
+ }
+ 
+ const Array<OneD, const NekDouble> &CoalescedGeomData::GetJac(
+-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
++    std::vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
+ {
+ 
+     if (m_oneDGeomData.count(eJac) == 0)
+@@ -114,7 +112,7 @@ const Array<OneD, const NekDouble> &CoalescedGeomData::GetJac(
+ }
+ 
+ const std::shared_ptr<VecVec_t> CoalescedGeomData::GetJacInterLeave(
+-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp, int nElmt)
++    std::vector<StdRegions::StdExpansionSharedPtr> &pCollExp, int nElmt)
+ {
+ 
+     if (m_oneDGeomDataInterLeave.count(eJac) == 0)
+@@ -198,7 +196,7 @@ const std::shared_ptr<VecVec_t> CoalescedGeomData::GetJacInterLeave(
+ }
+ 
+ const Array<OneD, const NekDouble> &CoalescedGeomData::GetJacWithStdWeights(
+-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
++    std::vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
+ {
+     if (m_oneDGeomData.count(eJacWithStdWeights) == 0)
+     {
+@@ -246,7 +244,7 @@ const Array<OneD, const NekDouble> &CoalescedGeomData::GetJacWithStdWeights(
+ }
+ 
+ const Array<TwoD, const NekDouble> &CoalescedGeomData::GetDerivFactors(
+-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
++    std::vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
+ {
+     if (m_twoDGeomData.count(eDerivFactors) == 0)
+     {
+@@ -309,7 +307,7 @@ const Array<TwoD, const NekDouble> &CoalescedGeomData::GetDerivFactors(
+ }
+ 
+ const std::shared_ptr<VecVec_t> CoalescedGeomData::GetDerivFactorsInterLeave(
+-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp, int nElmt)
++    std::vector<StdRegions::StdExpansionSharedPtr> &pCollExp, int nElmt)
+ {
+     if (m_twoDGeomDataInterLeave.count(eDerivFactors) == 0)
+     {
+@@ -398,7 +396,7 @@ const std::shared_ptr<VecVec_t> CoalescedGeomData::GetDerivFactorsInterLeave(
+ }
+ 
+ bool CoalescedGeomData::IsDeformed(
+-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
++    std::vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
+ {
+     if (!m_isDeformedSet)
+     {
+diff --git a/library/Demos/StdRegions/StdDemoSupport.hpp b/library/Demos/StdRegions/StdDemoSupport.hpp
+index 4f6aad7ca..682598825 100644
+--- a/library/Demos/StdRegions/StdDemoSupport.hpp
++++ b/library/Demos/StdRegions/StdDemoSupport.hpp
+@@ -53,7 +53,6 @@
+ #include <boost/algorithm/string.hpp>
+ #include <boost/program_options.hpp>
+ 
+-using namespace std;
+ using namespace Nektar;
+ using namespace Nektar::LibUtilities;
+ using namespace Nektar::StdRegions;
+diff --git a/library/FieldUtils/OutputModules/OutputFileBase.cpp b/library/FieldUtils/OutputModules/OutputFileBase.cpp
+index d3bc76eb8..5a413b759 100644
+--- a/library/FieldUtils/OutputModules/OutputFileBase.cpp
++++ b/library/FieldUtils/OutputModules/OutputFileBase.cpp
+@@ -32,9 +32,7 @@
+ //
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+-#include <set>
+ #include <string>
+-using namespace std;
+ 
+ #include "OutputFileBase.h"
+ #include <LibUtilities/BasicUtils/FileSystem.h>
+@@ -62,7 +60,7 @@ void OutputFileBase::Process(po::variables_map &vm)
+ {
+     m_f->SetUpExp(vm);
+ 
+-    string filename = m_config["outfile"].as<string>();
++    std::string filename = m_config["outfile"].as<std::string>();
+ 
+     if (m_f->m_fieldPts != LibUtilities::NullPtsField)
+     {
+@@ -89,17 +87,17 @@ void OutputFileBase::Process(po::variables_map &vm)
+         {
+             if (m_f->m_verbose && m_f->m_comm->TreatAsRankZero())
+             {
+-                cout << "\t" << GetModuleName()
++                std::cout << "\t" << GetModuleName()
+                      << ": Writing boundary file(s): ";
+                 for (int i = 0; i < m_f->m_bndRegionsToWrite.size(); ++i)
+                 {
+-                    cout << m_f->m_bndRegionsToWrite[i];
++                    std::cout << m_f->m_bndRegionsToWrite[i];
+                     if (i < m_f->m_bndRegionsToWrite.size() - 1)
+                     {
+-                        cout << ", ";
++                        std::cout << ", ";
+                     }
+                 }
+-                cout << endl;
++                std::cout << std::endl;
+             }
+ 
+             int nfields = m_f->m_variables.size();
+@@ -113,7 +111,7 @@ void OutputFileBase::Process(po::variables_map &vm)
+                 ;
+ 
+                 // Include normal name in m_variables
+-                string normstr[3] = {"Norm_x", "Norm_y", "Norm_z"};
++                std::string normstr[3] = {"Norm_x", "Norm_y", "Norm_z"};
+                 for (int j = 0; j < normdim; ++j)
+                 {
+                     m_f->m_exp[nfields + j] =
+@@ -123,7 +121,7 @@ void OutputFileBase::Process(po::variables_map &vm)
+             }
+ 
+             // Move m_exp to a new expansion vector
+-            vector<MultiRegions::ExpListSharedPtr> exp(m_f->m_exp.size());
++            std::vector<MultiRegions::ExpListSharedPtr> exp(m_f->m_exp.size());
+             exp.swap(m_f->m_exp);
+ 
+             Array<OneD, Array<OneD, const MultiRegions::ExpListSharedPtr>>
+@@ -139,8 +137,8 @@ void OutputFileBase::Process(po::variables_map &vm)
+                                                    exp[0]->GetGraph());
+             const SpatialDomains::BoundaryRegionCollection bregions =
+                 bcs.GetBoundaryRegions();
+-            map<int, int> BndRegionMap;
+-            map<int, LibUtilities::CommSharedPtr> BndRegionComm;
++            std::map<int, int> BndRegionMap;
++            std::map<int, LibUtilities::CommSharedPtr> BndRegionComm;
+             int cnt = 0;
+             for (auto &breg_it : bregions)
+             {
+@@ -151,17 +149,17 @@ void OutputFileBase::Process(po::variables_map &vm)
+ 
+             // find ending of output file and insert _b1, _b2
+             int dot     = filename.find_last_of('.') + 1;
+-            string ext  = filename.substr(dot, filename.length() - dot);
+-            string name = filename.substr(0, dot - 1);
++            std::string ext  = filename.substr(dot, filename.length() - dot);
++            std::string name = filename.substr(0, dot - 1);
+ 
+             // Store temporary communicator
+             LibUtilities::CommSharedPtr tmpComm = m_f->m_comm;
+ 
+             for (int i = 0; i < m_f->m_bndRegionsToWrite.size(); ++i)
+             {
+-                string outname =
++                std::string outname =
+                     name + "_b" +
+-                    boost::lexical_cast<string>(m_f->m_bndRegionsToWrite[i]) +
++                    boost::lexical_cast<std::string>(m_f->m_bndRegionsToWrite[i]) +
+                     "." + ext;
+ 
+                 if (!WriteFile(outname, vm))
+@@ -280,17 +278,17 @@ bool OutputFileBase::WriteFile(std::string &filename, po::variables_map &vm)
+ 
+             if (comm->TreatAsRankZero())
+             {
+-                string answer;
+-                cout << "Did you wish to overwrite " << outFile << " (y/n)? ";
+-                getline(cin, answer);
++                std::string answer;
++                std::cout << "Did you wish to overwrite " << outFile << " (y/n)? ";
++                getline(std::cin, answer);
+                 if (answer.compare("y") == 0)
+                 {
+                     writeFile = 1;
+                 }
+                 else
+                 {
+-                    cout << "Not writing file " << filename
+-                         << " because it already exists" << endl;
++                    std::cout << "Not writing file " << filename
++                         << " because it already exists" << std::endl;
+                 }
+             }
+             comm->AllReduce(writeFile, LibUtilities::ReduceSum);
+@@ -314,7 +312,7 @@ void OutputFileBase::ConvertExpToEquispaced(po::variables_map &vm)
+     m_f->m_graph->SetExpansionInfoToEvenlySpacedPoints(nPointsNew);
+ 
+     // Save original expansion
+-    vector<MultiRegions::ExpListSharedPtr> expOld = m_f->m_exp;
++    std::vector<MultiRegions::ExpListSharedPtr> expOld = m_f->m_exp;
+     // Create new expansion
+     m_f->m_exp[0] = m_f->SetUpFirstExpList(m_f->m_numHomogeneousDir, true);
+     for (int i = 1; i < numFields; ++i)
+@@ -355,7 +353,7 @@ void OutputFileBase::PrintErrorFromPts()
+     int coordim             = m_f->m_fieldPts->GetDim();
+     std::string coordVars[] = {"x", "y", "z"};
+ 
+-    vector<string> variables = m_f->m_variables;
++    std::vector<std::string> variables = m_f->m_variables;
+     variables.insert(variables.begin(), coordVars, coordVars + coordim);
+     // Get fields and coordinates
+     Array<OneD, Array<OneD, NekDouble>> fields(variables.size());
+@@ -373,7 +371,7 @@ void OutputFileBase::PrintErrorFromPts()
+         for (int j = 0; j < npts; ++j)
+         {
+             l2err += fields[i][j] * fields[i][j];
+-            linferr = max(linferr, fabs(fields[i][j]));
++            linferr = std::max(linferr, fabs(fields[i][j]));
+         }
+ 
+         m_f->m_comm->AllReduce(l2err, LibUtilities::ReduceSum);
+@@ -385,11 +383,11 @@ void OutputFileBase::PrintErrorFromPts()
+ 
+         if (m_f->m_comm->TreatAsRankZero())
+         {
+-            cout << "L 2 error (variable " << variables[i] << ") : " << l2err
+-                 << endl;
++            std::cout << "L 2 error (variable " << variables[i] << ") : " << l2err
++                 << std::endl;
+ 
+-            cout << "L inf error (variable " << variables[i]
+-                 << ") : " << linferr << endl;
++            std::cout << "L inf error (variable " << variables[i]
++                 << ") : " << linferr << std::endl;
+         }
+     }
+ }
+@@ -429,11 +427,11 @@ void OutputFileBase::PrintErrorFromExp()
+ 
+         if (m_f->m_comm->TreatAsRankZero())
+         {
+-            cout << "L 2 error (variable " << coordVars[j] << ") : " << l2err
+-                 << endl;
++            std::cout << "L 2 error (variable " << coordVars[j] << ") : " << l2err
++                 << std::endl;
+ 
+-            cout << "L inf error (variable " << coordVars[j]
+-                 << ") : " << linferr << endl;
++            std::cout << "L inf error (variable " << coordVars[j]
++                 << ") : " << linferr << std::endl;
+         }
+     }
+ 
+@@ -444,11 +442,11 @@ void OutputFileBase::PrintErrorFromExp()
+ 
+         if (m_f->m_comm->TreatAsRankZero() && m_f->m_variables.size() > 0)
+         {
+-            cout << "L 2 error (variable " << m_f->m_variables[j]
+-                 << ") : " << l2err << endl;
++            std::cout << "L 2 error (variable " << m_f->m_variables[j]
++                 << ") : " << l2err << std::endl;
+ 
+-            cout << "L inf error (variable " << m_f->m_variables[j]
+-                 << ") : " << linferr << endl;
++            std::cout << "L inf error (variable " << m_f->m_variables[j]
++                 << ") : " << linferr << std::endl;
+         }
+     }
+ }
+diff --git a/library/FieldUtils/OutputModules/OutputFld.cpp b/library/FieldUtils/OutputModules/OutputFld.cpp
+index 079d85af1..0e4206c0d 100644
+--- a/library/FieldUtils/OutputModules/OutputFld.cpp
++++ b/library/FieldUtils/OutputModules/OutputFld.cpp
+@@ -32,9 +32,7 @@
+ //
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+-#include <set>
+ #include <string>
+-using namespace std;
+ 
+ #include <boost/core/ignore_unused.hpp>
+ #include <boost/format.hpp>
+@@ -79,7 +77,7 @@ void OutputFld::OutputFromExp(po::variables_map &vm)
+     ASSERTL0(m_f->m_variables.size(), "OutputFld: need input data.")
+ 
+     // Extract the output filename and extension
+-    string filename = m_config["outfile"].as<string>();
++    std::string filename = m_config["outfile"].as<std::string>();
+ 
+     // Set up FieldIO object.
+     LibUtilities::FieldIOSharedPtr fld =
+@@ -128,7 +126,7 @@ void OutputFld::OutputFromData(po::variables_map &vm)
+     boost::ignore_unused(vm);
+ 
+     // Extract the output filename and extension
+-    string filename = m_config["outfile"].as<string>();
++    std::string filename = m_config["outfile"].as<std::string>();
+     // Set up FieldIO object.
+     LibUtilities::FieldIOSharedPtr fld =
+         LibUtilities::GetFieldIOFactory().CreateInstance(GetIOFormat(),
+@@ -183,7 +181,7 @@ std::string OutputFld::GetIOFormat()
+     }
+     if (m_config["format"].m_beenSet)
+     {
+-        iofmt = m_config["format"].as<string>();
++        iofmt = m_config["format"].as<std::string>();
+     }
+     return iofmt;
+ }
+diff --git a/library/FieldUtils/OutputModules/OutputInfo.cpp b/library/FieldUtils/OutputModules/OutputInfo.cpp
+index b9d7018dc..109cac4f5 100644
+--- a/library/FieldUtils/OutputModules/OutputInfo.cpp
++++ b/library/FieldUtils/OutputModules/OutputInfo.cpp
+@@ -32,9 +32,7 @@
+ //
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+-#include <set>
+ #include <string>
+-using namespace std;
+ 
+ #include <boost/core/ignore_unused.hpp>
+ #include <boost/format.hpp>
+@@ -69,10 +67,10 @@ void OutputInfo::Process(po::variables_map &vm)
+     boost::ignore_unused(vm);
+ 
+     // Extract the output filename and extension
+-    string filename = m_config["outfile"].as<string>();
++    std::string filename = m_config["outfile"].as<std::string>();
+ 
+     // partition mesh
+-    ASSERTL0(m_config["nparts"].as<string>().compare("NotSet") != 0,
++    ASSERTL0(m_config["nparts"].as<std::string>().compare("NotSet") != 0,
+              "Need to specify nparts for info output");
+     int nparts = m_config["nparts"].as<int>();
+ 
+@@ -94,7 +92,7 @@ void OutputInfo::Process(po::variables_map &vm)
+         std::string s = pad.str();
+ 
+         fs::path fullpath = pinfilename / s;
+-        string fname      = LibUtilities::PortablePath(fullpath);
++        std::string fname      = LibUtilities::PortablePath(fullpath);
+         if (!fs::exists(fname))
+         {
+             continue;
+@@ -122,7 +120,7 @@ void OutputInfo::Process(po::variables_map &vm)
+     }
+ 
+     // Write the Info.xml file
+-    string infofile =
++    std::string infofile =
+         LibUtilities::PortablePath(pinfilename / fs::path("Info.xml"));
+ 
+     fldXml->WriteMultiFldFileIDs(infofile, filenames, ElementIDs);
+diff --git a/library/FieldUtils/OutputModules/OutputPts.cpp b/library/FieldUtils/OutputModules/OutputPts.cpp
+index 5a1031387..5d533c296 100644
+--- a/library/FieldUtils/OutputModules/OutputPts.cpp
++++ b/library/FieldUtils/OutputModules/OutputPts.cpp
+@@ -33,9 +33,7 @@
+ //
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+-#include <set>
+ #include <string>
+-using namespace std;
+ 
+ #include <boost/core/ignore_unused.hpp>
+ 
+@@ -72,7 +70,7 @@ void OutputPts::OutputFromPts(po::variables_map &vm)
+     boost::ignore_unused(vm);
+ 
+     // Extract the output filename and extension
+-    string filename = m_config["outfile"].as<string>();
++    std::string filename = m_config["outfile"].as<std::string>();
+ 
+     if (boost::filesystem::path(filename).extension() == ".csv")
+     {
+diff --git a/library/FieldUtils/OutputModules/OutputStdOut.cpp b/library/FieldUtils/OutputModules/OutputStdOut.cpp
+index cfc68a8db..7d1af2511 100644
+--- a/library/FieldUtils/OutputModules/OutputStdOut.cpp
++++ b/library/FieldUtils/OutputModules/OutputStdOut.cpp
+@@ -32,9 +32,6 @@
+ //
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+-#include <set>
+-#include <string>
+-using namespace std;
+ 
+ #include <boost/core/ignore_unused.hpp>
+ #include <boost/format.hpp>
+diff --git a/library/FieldUtils/OutputModules/OutputTecplot.cpp b/library/FieldUtils/OutputModules/OutputTecplot.cpp
+index 1459e4218..0e6345c37 100644
+--- a/library/FieldUtils/OutputModules/OutputTecplot.cpp
++++ b/library/FieldUtils/OutputModules/OutputTecplot.cpp
+@@ -35,7 +35,6 @@
+ #include <iomanip>
+ #include <set>
+ #include <string>
+-using namespace std;
+ 
+ #include <boost/core/ignore_unused.hpp>
+ 
+@@ -355,16 +354,16 @@ fs::path OutputTecplot::GetPath(std::string &filename, po::variables_map &vm)
+     boost::ignore_unused(vm);
+ 
+     int nprocs = m_f->m_comm->GetSize();
+-    string returnstr(filename);
++    std::string returnstr(filename);
+ 
+     // Amend for parallel output if required
+     if (nprocs != 1 && !m_oneOutputFile)
+     {
+         int rank      = m_f->m_comm->GetRank();
+         int dot       = filename.find_last_of('.');
+-        string ext    = filename.substr(dot, filename.length() - dot);
+-        string procId = "_P" + boost::lexical_cast<std::string>(rank);
+-        string start  = filename.substr(0, dot);
++        std::string ext    = filename.substr(dot, filename.length() - dot);
++        std::string procId = "_P" + boost::lexical_cast<std::string>(rank);
++        std::string start  = filename.substr(0, dot);
+         returnstr     = start + procId + ext;
+     }
+     return fs::path(returnstr);
+@@ -380,20 +379,20 @@ void OutputTecplot::WriteTecplotFile(po::variables_map &vm)
+ {
+     // Variable names
+     std::string coordVars[]       = {"x", "y", "z"};
+-    std::vector<string> variables = m_f->m_variables;
++    std::vector<std::string> variables = m_f->m_variables;
+     variables.insert(variables.begin(), coordVars, coordVars + m_coordim);
+ 
+     int nprocs = m_f->m_comm->GetSize();
+     int rank   = m_f->m_comm->GetRank();
+ 
+     // Extract the output filename and extension
+-    string filename = m_config["outfile"].as<string>();
+-    string outFile  = LibUtilities::PortablePath(GetFullOutName(filename, vm));
++    std::string filename = m_config["outfile"].as<std::string>();
++    std::string outFile  = LibUtilities::PortablePath(GetFullOutName(filename, vm));
+     // Open output file
+-    ofstream outfile;
++    std::ofstream outfile;
+     if ((m_oneOutputFile && rank == 0) || !m_oneOutputFile)
+     {
+-        outfile.open(outFile.c_str(), m_binary ? ios::binary : ios::out);
++        outfile.open(outFile.c_str(), m_binary ? std::ios::binary : std::ios::out);
+     }
+ 
+     if (m_oneOutputFile)
+@@ -433,7 +432,7 @@ void OutputTecplot::WriteTecplotFile(po::variables_map &vm)
+ 
+     if ((m_oneOutputFile && rank == 0) || !m_oneOutputFile)
+     {
+-        cout << "Written file: " << GetFullOutName(filename, vm) << endl;
++        std::cout << "Written file: " << GetFullOutName(filename, vm) << std::endl;
+     }
+ }
+ 
+@@ -606,7 +605,7 @@ void OutputTecplot::WriteTecplotZone(std::ofstream &outfile)
+             {
+                 for (int j = 0; j < m_fields.size(); ++j)
+                 {
+-                    outfile << setw(12) << m_fields[j][i] << " ";
++                    outfile << std::setw(12) << m_fields[j][i] << " ";
+                 }
+                 outfile << std::endl;
+             }
+@@ -618,7 +617,7 @@ void OutputTecplot::WriteTecplotZone(std::ofstream &outfile)
+                     m_f->m_comm->Recv(n, tmp);
+                     for (int j = 0; j < m_fields.size(); ++j)
+                     {
+-                        outfile << setw(12) << tmp[j] << " ";
++                        outfile << std::setw(12) << tmp[j] << " ";
+                     }
+                     outfile << std::endl;
+                 }
+@@ -644,7 +643,7 @@ void OutputTecplot::WriteTecplotZone(std::ofstream &outfile)
+             {
+                 for (int j = 0; j < m_fields.size(); ++j)
+                 {
+-                    outfile << setw(12) << m_fields[j][i] << " ";
++                    outfile << std::setw(12) << m_fields[j][i] << " ";
+                 }
+                 outfile << std::endl;
+             }
+@@ -701,7 +700,7 @@ void OutputTecplotBinary::WriteTecplotZone(std::ofstream &outfile)
+ 
+         // Write same name as preplot
+         int rank        = m_f->m_comm->GetRank();
+-        string zonename = "ZONE " + boost::lexical_cast<string>(rank);
++        std::string zonename = "ZONE " + boost::lexical_cast<std::string>(rank);
+         WriteStream(outfile, zonename);
+ 
+         WriteStream(outfile, -1);  // No parent zone
+@@ -860,7 +859,7 @@ void OutputTecplot::WriteTecplotConnectivity(std::ofstream &outfile)
+                 }
+             }
+         }
+-        outfile << endl;
++        outfile << std::endl;
+ 
+         if (m_oneOutputFile && m_f->m_comm->GetRank() == 0)
+         {
+diff --git a/library/FieldUtils/OutputModules/OutputVtkBase.cpp b/library/FieldUtils/OutputModules/OutputVtkBase.cpp
+index 8586f45d4..64e1028b3 100644
+--- a/library/FieldUtils/OutputModules/OutputVtkBase.cpp
++++ b/library/FieldUtils/OutputModules/OutputVtkBase.cpp
+@@ -33,9 +33,7 @@
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+ #include <iomanip>
+-#include <set>
+ #include <string>
+-using namespace std;
+ 
+ #include <boost/core/ignore_unused.hpp>
+ #include <boost/format.hpp>
+@@ -73,10 +71,10 @@ void OutputVtkBase::OutputFromPts(po::variables_map &vm)
+     LibUtilities::PtsFieldSharedPtr fPts = m_f->m_fieldPts;
+ 
+     // Extract the output filename and extension
+-    string filename = PrepareOutput(vm);
++    std::string filename = PrepareOutput(vm);
+ 
+     // Write solution.
+-    ofstream outfile(filename.c_str());
++    std::ofstream outfile(filename.c_str());
+     WriteVtkHeader(outfile);
+     int nfields = 0;
+     int dim     = fPts->GetDim();
+@@ -126,7 +124,7 @@ void OutputVtkBase::OutputFromPts(po::variables_map &vm)
+             NEKERROR(ErrorUtil::efatal, "ptsType not supported yet.");
+     }
+ 
+-    vector<Array<OneD, int>> ptsConn;
++    std::vector<Array<OneD, int>> ptsConn;
+     fPts->GetConnectivity(ptsConn);
+ 
+     nfields = fPts->GetNFields();
+@@ -140,15 +138,15 @@ void OutputVtkBase::OutputFromPts(po::variables_map &vm)
+ 
+     // write out pieces of data.
+     outfile << "    <Piece NumberOfPoints=\"" << nPts << "\" NumberOfCells=\""
+-            << numBlocks << "\">" << endl;
+-    outfile << "      <Points>" << endl;
++            << numBlocks << "\">" << std::endl;
++    outfile << "      <Points>" << std::endl;
+     outfile << "        <DataArray type=\"Float64\" "
+-            << "NumberOfComponents=\"" << 3 << "\" format=\"ascii\">" << endl;
++            << "NumberOfComponents=\"" << 3 << "\" format=\"ascii\">" << std::endl;
+     for (i = 0; i < nPts; ++i)
+     {
+         for (j = 0; j < dim; ++j)
+         {
+-            outfile << "          " << setprecision(8) << scientific
++            outfile << "          " << std::setprecision(8) << std::scientific
+                     << fPts->GetPointVal(j, i) << " ";
+         }
+         for (j = dim; j < 3; ++j)
+@@ -156,13 +154,13 @@ void OutputVtkBase::OutputFromPts(po::variables_map &vm)
+             // pack to 3D since paraview does not seem to handle 2D
+             outfile << "          0.000000";
+         }
+-        outfile << endl;
++        outfile << std::endl;
+     }
+-    outfile << "        </DataArray>" << endl;
+-    outfile << "      </Points>" << endl;
+-    outfile << "      <Cells>" << endl;
++    outfile << "        </DataArray>" << std::endl;
++    outfile << "      </Points>" << std::endl;
++    outfile << "      <Cells>" << std::endl;
+     outfile << "        <DataArray type=\"Int32\" "
+-            << "Name=\"connectivity\" format=\"ascii\">" << endl;
++            << "Name=\"connectivity\" format=\"ascii\">" << std::endl;
+ 
+     // dump connectivity data if it exists
+     outfile << "          ";
+@@ -180,54 +178,54 @@ void OutputVtkBase::OutputFromPts(po::variables_map &vm)
+             cnt++;
+         }
+     }
+-    outfile << "        </DataArray>" << endl;
++    outfile << "        </DataArray>" << std::endl;
+     outfile << "        <DataArray type=\"Int32\" "
+-            << "Name=\"offsets\" format=\"ascii\">" << endl;
++            << "Name=\"offsets\" format=\"ascii\">" << std::endl;
+ 
+     outfile << "          ";
+     for (i = 0; i < numBlocks; ++i)
+     {
+         outfile << i * nvert + nvert << " ";
+     }
+-    outfile << endl;
+-    outfile << "        </DataArray>" << endl;
++    outfile << std::endl;
++    outfile << "        </DataArray>" << std::endl;
+     outfile << "        <DataArray type=\"UInt8\" "
+-            << "Name=\"types\" format=\"ascii\">" << endl;
++            << "Name=\"types\" format=\"ascii\">" << std::endl;
+     outfile << "          ";
+     for (i = 0; i < numBlocks; ++i)
+     {
+         outfile << vtktype << " ";
+     }
+-    outfile << endl;
+-    outfile << "        </DataArray>" << endl;
+-    outfile << "      </Cells>" << endl;
+-    outfile << "      <PointData>" << endl;
++    outfile << std::endl;
++    outfile << "        </DataArray>" << std::endl;
++    outfile << "      </Cells>" << std::endl;
++    outfile << "      <PointData>" << std::endl;
+ 
+     // printing the fields
+     for (j = 0; j < nfields; ++j)
+     {
+         outfile << "        <DataArray type=\"Float64\" Name=\""
+-                << m_f->m_variables[j] << "\">" << endl;
++                << m_f->m_variables[j] << "\">" << std::endl;
+         outfile << "          ";
+         for (i = 0; i < fPts->GetNpoints(); ++i)
+         {
+             outfile << fPts->GetPointVal(dim + j, i) << " ";
+         }
+-        outfile << endl;
+-        outfile << "        </DataArray>" << endl;
++        outfile << std::endl;
++        outfile << "        </DataArray>" << std::endl;
+     }
+ 
+-    outfile << "      </PointData>" << endl;
+-    outfile << "    </Piece>" << endl;
++    outfile << "      </PointData>" << std::endl;
++    outfile << "    </Piece>" << std::endl;
+ 
+     WriteVtkFooter(outfile);
+-    cout << "Written file: " << filename << endl;
++    std::cout << "Written file: " << filename << std::endl;
+ 
+     // output parallel outline info if necessary
+     if ((m_f->m_comm->GetRank() == 0) && (m_f->m_comm->GetSize() != 1))
+     {
+         WritePVtu(vm);
+-        cout << "Written file: " << filename << endl;
++        std::cout << "Written file: " << filename << std::endl;
+     }
+ }
+ 
+@@ -235,10 +233,10 @@ void OutputVtkBase::OutputFromExp(po::variables_map &vm)
+ {
+     int i, j;
+     // Extract the output filename and extension
+-    string filename = PrepareOutput(vm);
++    std::string filename = PrepareOutput(vm);
+ 
+     // Write solution.
+-    ofstream outfile(filename.c_str());
++    std::ofstream outfile(filename.c_str());
+     WriteVtkHeader(outfile);
+     int nfields = m_f->m_variables.size();
+ 
+@@ -269,7 +267,7 @@ void OutputVtkBase::OutputFromExp(po::variables_map &vm)
+     }
+ 
+     WriteVtkFooter(outfile);
+-    cout << "Written file: " << filename << endl;
++    std::cout << "Written file: " << filename << std::endl;
+ 
+     // output parallel outline info if necessary
+     if ((m_f->m_comm->GetRank() == 0) && (m_f->m_comm->GetSize() != 1))
+@@ -298,7 +296,7 @@ fs::path OutputVtkBase::GetPath(std::string &filename, po::variables_map &vm)
+     {
+         // replace .vtu by _vtu
+         int dot     = filename.find_last_of('.');
+-        string path = filename.substr(0, dot) + "_vtu";
++        std::string path = filename.substr(0, dot) + "_vtu";
+         specPath    = fs::path(path);
+     }
+     return fs::path(specPath);
+@@ -330,106 +328,106 @@ fs::path OutputVtkBase::GetFullOutName(std::string &filename,
+ 
+ void OutputVtkBase::WriteVtkHeader(std::ostream &outfile)
+ {
+-    outfile << "<?xml version=\"1.0\"?>" << endl;
++    outfile << "<?xml version=\"1.0\"?>" << std::endl;
+     outfile << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" "
+-            << "byte_order=\"LittleEndian\">" << endl;
+-    outfile << "  <UnstructuredGrid>" << endl;
++            << "byte_order=\"LittleEndian\">" << std::endl;
++    outfile << "  <UnstructuredGrid>" << std::endl;
+ }
+ 
+ void OutputVtkBase::WriteVtkFooter(std::ostream &outfile)
+ {
+-    outfile << "  </UnstructuredGrid>" << endl;
+-    outfile << "</VTKFile>" << endl;
++    outfile << "  </UnstructuredGrid>" << std::endl;
++    outfile << "</VTKFile>" << std::endl;
+ }
+ 
+ void OutputVtkBase::WriteEmptyVtkPiece(std::ofstream &outfile)
+ {
+     // write out empty piece of data.
+     outfile << "    <Piece NumberOfPoints=\"" << 0 << "\" NumberOfCells=\"" << 0
+-            << "\">" << endl;
+-    outfile << "      <Points>" << endl;
++            << "\">" << std::endl;
++    outfile << "      <Points>" << std::endl;
+     outfile << "        <DataArray type=\"Float64\" "
+-            << "NumberOfComponents=\"" << 3 << "\" format=\"ascii\">" << endl;
+-    outfile << "        </DataArray>" << endl;
+-    outfile << "      </Points>" << endl;
+-    outfile << "      <Cells>" << endl;
++            << "NumberOfComponents=\"" << 3 << "\" format=\"ascii\">" << std::endl;
++    outfile << "        </DataArray>" << std::endl;
++    outfile << "      </Points>" << std::endl;
++    outfile << "      <Cells>" << std::endl;
+     outfile << "        <DataArray type=\"Int32\" "
+-            << "Name=\"connectivity\" format=\"ascii\">" << endl;
+-    outfile << "        </DataArray>" << endl;
++            << "Name=\"connectivity\" format=\"ascii\">" << std::endl;
++    outfile << "        </DataArray>" << std::endl;
+     outfile << "        <DataArray type=\"Int32\" "
+-            << "Name=\"offsets\" format=\"ascii\">" << endl;
++            << "Name=\"offsets\" format=\"ascii\">" << std::endl;
+ 
+     outfile << "          ";
+-    outfile << endl;
+-    outfile << "        </DataArray>" << endl;
++    outfile << std::endl;
++    outfile << "        </DataArray>" << std::endl;
+     outfile << "        <DataArray type=\"UInt8\" "
+-            << "Name=\"types\" format=\"ascii\">" << endl;
++            << "Name=\"types\" format=\"ascii\">" << std::endl;
+     outfile << "          ";
+-    outfile << endl;
+-    outfile << "        </DataArray>" << endl;
+-    outfile << "      </Cells>" << endl;
+-    outfile << "      <PointData>" << endl;
++    outfile << std::endl;
++    outfile << "        </DataArray>" << std::endl;
++    outfile << "      </Cells>" << std::endl;
++    outfile << "      <PointData>" << std::endl;
+ 
+-    outfile << "      </PointData>" << endl;
+-    outfile << "    </Piece>" << endl;
++    outfile << "      </PointData>" << std::endl;
++    outfile << "    </Piece>" << std::endl;
+ }
+ 
+ void OutputVtkBase::WritePVtu(po::variables_map &vm)
+ {
+-    string filename = m_config["outfile"].as<string>();
++    std::string filename = m_config["outfile"].as<std::string>();
+     int dot         = filename.find_last_of('.');
+-    string body     = filename.substr(0, dot);
++    std::string body     = filename.substr(0, dot);
+     filename        = body + ".pvtu";
+ 
+-    ofstream outfile(filename.c_str());
++    std::ofstream outfile(filename.c_str());
+ 
+     int nprocs  = m_f->m_comm->GetSize();
+-    string path = LibUtilities::PortablePath(GetPath(filename, vm));
++    std::string path = LibUtilities::PortablePath(GetPath(filename, vm));
+ 
+-    outfile << "<?xml version=\"1.0\"?>" << endl;
++    outfile << "<?xml version=\"1.0\"?>" << std::endl;
+     outfile << "<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\" "
+-            << "byte_order=\"LittleEndian\">" << endl;
+-    outfile << "<PUnstructuredGrid GhostLevel=\"0\">" << endl;
+-    outfile << "<PPoints> " << endl;
++            << "byte_order=\"LittleEndian\">" << std::endl;
++    outfile << "<PUnstructuredGrid GhostLevel=\"0\">" << std::endl;
++    outfile << "<PPoints> " << std::endl;
+     outfile << "<PDataArray type=\"Float64\" NumberOfComponents=\"" << 3
+-            << "\"/> " << endl;
+-    outfile << "</PPoints>" << endl;
+-    outfile << "<PCells>" << endl;
++            << "\"/> " << std::endl;
++    outfile << "</PPoints>" << std::endl;
++    outfile << "<PCells>" << std::endl;
+     outfile << "<PDataArray type=\"Int32\" Name=\"connectivity\" "
+                "NumberOfComponents=\"1\"/>"
+-            << endl;
++            << std::endl;
+     outfile << "<PDataArray type=\"Int32\" Name=\"offsets\"      "
+                "NumberOfComponents=\"1\"/>"
+-            << endl;
++            << std::endl;
+     outfile << "<PDataArray type=\"UInt8\" Name=\"types\"        "
+                "NumberOfComponents=\"1\"/>"
+-            << endl;
+-    outfile << "</PCells>" << endl;
+-    outfile << "<PPointData Scalars=\"Material\">" << endl;
++            << std::endl;
++    outfile << "</PCells>" << std::endl;
++    outfile << "<PPointData Scalars=\"Material\">" << std::endl;
+     for (int i = 0; i < m_f->m_variables.size(); ++i)
+     {
+         outfile << "<PDataArray type=\"Float64\" Name=\"" << m_f->m_variables[i]
+-                << "\"/>" << endl;
++                << "\"/>" << std::endl;
+     }
+-    outfile << "</PPointData>" << endl;
++    outfile << "</PPointData>" << std::endl;
+ 
+     for (int i = 0; i < nprocs; ++i)
+     {
+         boost::format pad("P%1$07d.vtu");
+         pad % i;
+         outfile << "<Piece Source=\"" << path << "/" << pad.str() << "\"/>"
+-                << endl;
++                << std::endl;
+     }
+-    outfile << "</PUnstructuredGrid>" << endl;
+-    outfile << "</VTKFile>" << endl;
++    outfile << "</PUnstructuredGrid>" << std::endl;
++    outfile << "</VTKFile>" << std::endl;
+ 
+-    cout << "Written file: " << filename << endl;
++    std::cout << "Written file: " << filename << std::endl;
+ }
+ 
+ std::string OutputVtkBase::PrepareOutput(po::variables_map &vm)
+ {
+     // Extract the output filename and extension
+-    string filename = m_config["outfile"].as<string>();
++    std::string filename = m_config["outfile"].as<std::string>();
+ 
+     fs::path specPath    = GetPath(filename, vm);
+     fs::path fulloutname = GetFullOutName(filename, vm);
+@@ -445,15 +443,15 @@ std::string OutputVtkBase::PrepareOutput(po::variables_map &vm)
+             }
+             catch (fs::filesystem_error &e)
+             {
+-                ASSERTL0(false, "Filesystem error: " + string(e.what()));
++                ASSERTL0(false, "Filesystem error: " + std::string(e.what()));
+             }
+-            cout << "Writing files to directory: " << specPath << endl;
++            std::cout << "Writing files to directory: " << specPath << std::endl;
+         }
+         m_f->m_comm->Block();
+     }
+     else
+     {
+-        cout << "Writing: " << specPath << endl;
++        std::cout << "Writing: " << specPath << std::endl;
+     }
+     return filename;
+ }
+diff --git a/library/FieldUtils/OutputModules/OutputXml.cpp b/library/FieldUtils/OutputModules/OutputXml.cpp
+index c41b18f87..71a38539c 100644
+--- a/library/FieldUtils/OutputModules/OutputXml.cpp
++++ b/library/FieldUtils/OutputModules/OutputXml.cpp
+@@ -32,9 +32,7 @@
+ //
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+-#include <set>
+ #include <string>
+-using namespace std;
+ 
+ #include <boost/core/ignore_unused.hpp>
+ 
+@@ -66,10 +64,10 @@ void OutputXml::Process(po::variables_map &vm)
+     }
+ 
+     // Extract the output filename and extension
+-    string filename = m_config["outfile"].as<string>();
++    std::string filename = m_config["outfile"].as<std::string>();
+ 
+     m_f->m_graph->WriteGeometry(filename);
+-    cout << "Written file: " << filename << endl;
++    std::cout << "Written file: " << filename << std::endl;
+ }
+ } // namespace FieldUtils
+ } // namespace Nektar
+diff --git a/library/FieldUtils/ProcessModules/ProcessInterpPointDataToFld.cpp b/library/FieldUtils/ProcessModules/ProcessInterpPointDataToFld.cpp
+index 66800f5cd..7e1e6c5d1 100644
+--- a/library/FieldUtils/ProcessModules/ProcessInterpPointDataToFld.cpp
++++ b/library/FieldUtils/ProcessModules/ProcessInterpPointDataToFld.cpp
+@@ -34,7 +34,6 @@
+ ////////////////////////////////////////////////////////////////////////////////
+ #include <iostream>
+ #include <string>
+-using namespace std;
+ 
+ #include <boost/core/ignore_unused.hpp>
+ #include <boost/geometry.hpp>
+@@ -48,6 +47,7 @@ using namespace std;
+ 
+ #include "ProcessInterpPointDataToFld.h"
+ 
++using namespace std;
+ namespace bg  = boost::geometry;
+ namespace bgi = boost::geometry::index;
+ 
+diff --git a/library/FieldUtils/ProcessModules/ProcessInterpPoints.cpp b/library/FieldUtils/ProcessModules/ProcessInterpPoints.cpp
+index f2d8e5b40..4b13513ff 100644
+--- a/library/FieldUtils/ProcessModules/ProcessInterpPoints.cpp
++++ b/library/FieldUtils/ProcessModules/ProcessInterpPoints.cpp
+@@ -34,7 +34,6 @@
+ 
+ #include <iostream>
+ #include <string>
+-using namespace std;
+ 
+ #include <boost/core/ignore_unused.hpp>
+ #include <boost/geometry.hpp>
+@@ -49,6 +48,7 @@ using namespace std;
+ #include <LibUtilities/BasicUtils/SharedArray.hpp>
+ 
+ #include "ProcessInterpPoints.h"
++using namespace std;
+ 
+ namespace bg  = boost::geometry;
+ namespace bgi = boost::geometry::index;
+diff --git a/library/LibUtilities/BasicUtils/CompressData.cpp b/library/LibUtilities/BasicUtils/CompressData.cpp
+index 5b8d26b64..c2a2cc887 100644
+--- a/library/LibUtilities/BasicUtils/CompressData.cpp
++++ b/library/LibUtilities/BasicUtils/CompressData.cpp
+@@ -46,7 +46,7 @@
+ #include <boost/lexical_cast.hpp>
+ 
+ #include <cstdint>
+-#include <set>
++//#include <set>
+ 
+ #ifdef NEKTAR_USE_MPI
+ #include <mpi.h>
+diff --git a/library/LibUtilities/BasicUtils/FieldIO.cpp b/library/LibUtilities/BasicUtils/FieldIO.cpp
+index 16fb2ae50..ea3ecd1ce 100644
+--- a/library/LibUtilities/BasicUtils/FieldIO.cpp
++++ b/library/LibUtilities/BasicUtils/FieldIO.cpp
+@@ -45,7 +45,7 @@
+ #include <fstream>
+ #include <iomanip>
+ #include <ios>
+-#include <set>
++//#include <set>
+ 
+ #ifdef NEKTAR_USE_MPI
+ #include <mpi.h>
+diff --git a/library/LibUtilities/BasicUtils/Interpolator.h b/library/LibUtilities/BasicUtils/Interpolator.h
+index b56ef8c14..db7f8c044 100644
+--- a/library/LibUtilities/BasicUtils/Interpolator.h
++++ b/library/LibUtilities/BasicUtils/Interpolator.h
+@@ -44,7 +44,6 @@
+ #include <boost/geometry/geometries/box.hpp>
+ #include <boost/geometry/geometries/point.hpp>
+ #include <boost/geometry/index/rtree.hpp>
+-#include <boost/geometry/strategies/strategies.hpp> // required with boost 1.77
+ 
+ #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+ #include <LibUtilities/BasicUtils/PtsField.h>
+@@ -52,6 +51,8 @@
+ #include <LibUtilities/BasicUtils/VmathArray.hpp>
+ #include <LibUtilities/LibUtilitiesDeclspec.h>
+ 
++#include <boost/geometry/strategies/strategies.hpp> // required with boost 1.77
++
+ namespace Nektar
+ {
+ namespace LibUtilities
+diff --git a/library/LibUtilities/BasicUtils/Smath.hpp b/library/LibUtilities/BasicUtils/Smath.hpp
+index f6f41de9b..38f091040 100644
+--- a/library/LibUtilities/BasicUtils/Smath.hpp
++++ b/library/LibUtilities/BasicUtils/Smath.hpp
+@@ -41,7 +41,6 @@
+ #include <algorithm>
+ #include <cstdlib>
+ #include <math.h>
+-using namespace std;
+ using namespace Nektar;
+ 
+ namespace Smath
+diff --git a/library/LibUtilities/TimeIntegration/DIRKTimeIntegrationSchemes.h b/library/LibUtilities/TimeIntegration/DIRKTimeIntegrationSchemes.h
+index bfcb9953a..137c33767 100644
+--- a/library/LibUtilities/TimeIntegration/DIRKTimeIntegrationSchemes.h
++++ b/library/LibUtilities/TimeIntegration/DIRKTimeIntegrationSchemes.h
+@@ -42,7 +42,6 @@
+ #define NEKTAR_LIB_UTILITIES_TIME_INTEGRATION_DIRK_TIME_INTEGRATION_SCHEME
+ 
+ #define LUE LIB_UTILITIES_EXPORT
+-using namespace std;
+ 
+ #include <LibUtilities/TimeIntegration/TimeIntegrationAlgorithmGLM.h>
+ #include <LibUtilities/TimeIntegration/TimeIntegrationSchemeGLM.h>
+diff --git a/library/NekMesh/Module/OutputModules/OutputNekpp.cpp b/library/NekMesh/Module/OutputModules/OutputNekpp.cpp
+index 799e7addf..fa0d8b359 100644
+--- a/library/NekMesh/Module/OutputModules/OutputNekpp.cpp
++++ b/library/NekMesh/Module/OutputModules/OutputNekpp.cpp
+@@ -32,9 +32,7 @@
+ //
+ ///////////////////////////////////////////////////////////////////////////////
+ 
+-#include <set>
+ #include <string>
+-using namespace std;
+ 
+ #include <boost/algorithm/string/classification.hpp>
+ #include <boost/algorithm/string/predicate.hpp>
+@@ -125,7 +123,7 @@ void TestElmts(const std::map<int, std::shared_ptr<T>> &geomMap,
+ 
+                 if (output != 1.0)
+                 {
+-                    log(FATAL) << "Output mesh failed coordinate test" << endl;
++                    log(FATAL) << "Output mesh failed coordinate test" << std::endl;
+                 }
+             }
+ 
+@@ -143,7 +141,7 @@ void TestElmts(const std::map<int, std::shared_ptr<T>> &geomMap,
+             if (output != 1.0)
+             {
+                 log(FATAL) << "Output mesh failed coordinate midpoint test"
+-                           << endl;
++                           << std::endl;
+             }
+         }
+     }
+@@ -152,7 +150,7 @@ void TestElmts(const std::map<int, std::shared_ptr<T>> &geomMap,
+ void OutputNekpp::Process()
+ {
+     m_log(VERBOSE) << "Writing Nektar++ file '"
+-                   << m_config["outfile"].as<string>() << "'" << endl;
++                   << m_config["outfile"].as<std::string>() << "'" << std::endl;
+ 
+     int order = m_config["order"].as<int>();
+ 
+@@ -168,26 +166,26 @@ void OutputNekpp::Process()
+         ModuleSharedPtr module = GetModuleFactory().CreateInstance(
+             ModuleKey(eProcessModule, "varopti"), m_mesh);
+         module->RegisterConfig("hyperelastic", "");
+-        module->RegisterConfig("numthreads", boost::lexical_cast<string>(np));
++        module->RegisterConfig("numthreads", boost::lexical_cast<std::string>(np));
+ 
+         try
+         {
+             module->SetDefaults();
+             module->Process();
+         }
+-        catch (runtime_error &e)
++        catch (std::runtime_error &e)
+         {
+             m_log(WARNING) << "Variational optimisation has failed with "
+-                           << "message:" << endl;
+-            m_log(WARNING) << e.what() << endl;
++                           << "message:" << std::endl;
++            m_log(WARNING) << e.what() << std::endl;
+             m_log(WARNING) << "The mesh will be written as is, it may be "
+-                           << "invalid" << endl;
++                           << "invalid" << std::endl;
+             return;
+         }
+     }
+ 
+-    string file = m_config["outfile"].as<string>();
+-    string ext  = boost::filesystem::extension(file);
++    std::string file = m_config["outfile"].as<std::string>();
++    std::string ext  = boost::filesystem::extension(file);
+ 
+     if (m_config["stats"].beenSet)
+     {
+@@ -198,7 +196,7 @@ void OutputNekpp::Process()
+     std::string type = "XmlCompressed";
+ 
+     // Extract the output filename and extension
+-    string filename = m_config["outfile"].as<string>();
++    std::string filename = m_config["outfile"].as<std::string>();
+ 
+     // Compress output and append .gz extension
+     if (boost::iequals(ext, ".xml") && m_config["uncompress"].beenSet)
+@@ -224,7 +222,7 @@ void OutputNekpp::Process()
+     TransferComposites(graph);
+     TransferDomain(graph);
+ 
+-    string out = m_config["outfile"].as<string>();
++    std::string out = m_config["outfile"].as<std::string>();
+     graph->WriteGeometry(out, true, m_mesh->m_metadata);
+ 
+     // Test the resulting XML file (with a basic test) by loading it
+@@ -234,7 +232,7 @@ void OutputNekpp::Process()
+     {
+         // Create an equation based on the test condition. Should evaluate to 1
+         // or 0 using boolean logic.
+-        string testcond = m_config["testcond"].as<string>();
++      std::string testcond = m_config["testcond"].as<std::string>();
+         int exprId      = -1;
+ 
+         if (testcond.length() > 0)
+@@ -242,11 +240,11 @@ void OutputNekpp::Process()
+             exprId = m_strEval.DefineFunction("x y z", testcond);
+         }
+ 
+-        vector<string> filenames(1);
++        std::vector<std::string> filenames(1);
+ 
+         if (type == "HDF5")
+         {
+-            vector<string> tmp;
++          std::vector<std::string> tmp;
+             boost::split(tmp, filename, boost::is_any_of("."));
+             filenames[0] = tmp[0] + ".xml";
+         }
+@@ -342,7 +340,7 @@ void OutputNekpp::TransferFaces(
+ 
+ void OutputNekpp::TransferElements(MeshGraphSharedPtr graph)
+ {
+-    vector<ElementSharedPtr> &elmt = m_mesh->m_element[m_mesh->m_expDim];
++  std::vector<ElementSharedPtr> &elmt = m_mesh->m_element[m_mesh->m_expDim];
+ 
+     SegGeomMap &segMap     = graph->GetAllSegGeoms();
+     TriGeomMap &triMap     = graph->GetAllTriGeoms();
+@@ -399,7 +397,7 @@ void OutputNekpp::TransferElements(MeshGraphSharedPtr graph)
+                 {
+                     Geometry2DSharedPtr face =
+                         graph->GetGeometry2D(elmt[i]->GetFace(j)->m_id);
+-                    tfaces[j] = static_pointer_cast<TriGeom>(face);
++                    tfaces[j] = std::static_pointer_cast<TriGeom>(face);
+                 }
+ 
+                 tetMap[id] =
+@@ -418,12 +416,12 @@ void OutputNekpp::TransferElements(MeshGraphSharedPtr graph)
+ 
+                     if (face->GetShapeType() == LibUtilities::eTriangle)
+                     {
+-                        faces[j] = static_pointer_cast<TriGeom>(face);
++                        faces[j] = std::static_pointer_cast<TriGeom>(face);
+                     }
+                     else if (face->GetShapeType() ==
+                              LibUtilities::eQuadrilateral)
+                     {
+-                        faces[j] = static_pointer_cast<QuadGeom>(face);
++                        faces[j] = std::static_pointer_cast<QuadGeom>(face);
+                     }
+                 }
+                 pyrMap[id] =
+@@ -442,12 +440,12 @@ void OutputNekpp::TransferElements(MeshGraphSharedPtr graph)
+ 
+                     if (face->GetShapeType() == LibUtilities::eTriangle)
+                     {
+-                        faces[j] = static_pointer_cast<TriGeom>(face);
++                        faces[j] = std::static_pointer_cast<TriGeom>(face);
+                     }
+                     else if (face->GetShapeType() ==
+                              LibUtilities::eQuadrilateral)
+                     {
+-                        faces[j] = static_pointer_cast<QuadGeom>(face);
++                        faces[j] = std::static_pointer_cast<QuadGeom>(face);
+                     }
+                 }
+                 prismMap[id] =
+@@ -463,7 +461,7 @@ void OutputNekpp::TransferElements(MeshGraphSharedPtr graph)
+                 {
+                     Geometry2DSharedPtr face =
+                         graph->GetGeometry2D(elmt[i]->GetFace(j)->m_id);
+-                    faces[j] = static_pointer_cast<QuadGeom>(face);
++                    faces[j] = std::static_pointer_cast<QuadGeom>(face);
+                 }
+ 
+                 hexMap[id] =
+@@ -488,7 +486,7 @@ void OutputNekpp::TransferCurves(MeshGraphSharedPtr graph)
+         {
+             CurveSharedPtr curve = MemoryManager<Curve>::AllocateSharedPtr(
+                 it->m_id, it->m_curveType);
+-            vector<NodeSharedPtr> ns;
++            std::vector<NodeSharedPtr> ns;
+             it->GetCurvedNodes(ns);
+             for (int i = 0; i < ns.size(); i++)
+             {
+@@ -509,7 +507,7 @@ void OutputNekpp::TransferCurves(MeshGraphSharedPtr graph)
+         for (int e = 0; e < m_mesh->m_element[1].size(); e++)
+         {
+             ElementSharedPtr el = m_mesh->m_element[1][e];
+-            vector<NodeSharedPtr> ns;
++            std::vector<NodeSharedPtr> ns;
+             el->GetCurvedNodes(ns);
+             if (ns.size() > 2)
+             {
+@@ -541,7 +539,7 @@ void OutputNekpp::TransferCurves(MeshGraphSharedPtr graph)
+         {
+             CurveSharedPtr curve = MemoryManager<Curve>::AllocateSharedPtr(
+                 it->m_id, it->m_curveType);
+-            vector<NodeSharedPtr> ns;
++            std::vector<NodeSharedPtr> ns;
+             it->GetCurvedNodes(ns);
+             for (int i = 0; i < ns.size(); i++)
+             {
+@@ -566,7 +564,7 @@ void OutputNekpp::TransferCurves(MeshGraphSharedPtr graph)
+ 
+             if (el->GetVolumeNodes().size() > 0) // needed for extract surf case
+             {
+-                vector<NodeSharedPtr> ns;
++              std::vector<NodeSharedPtr> ns;
+                 el->GetCurvedNodes(ns);
+                 if (ns.size() > 4)
+                 {
+@@ -594,7 +592,7 @@ void OutputNekpp::TransferCurves(MeshGraphSharedPtr graph)
+ void OutputNekpp::TransferComposites(MeshGraphSharedPtr graph)
+ {
+     SpatialDomains::CompositeMap &comps = graph->GetComposites();
+-    map<int, string> &compLabels        = graph->GetCompositesLabels();
++    std::map<int, std::string> &compLabels        = graph->GetCompositesLabels();
+ 
+     int j = 0;
+ 
+@@ -729,7 +727,7 @@ void OutputNekpp::TransferComposites(MeshGraphSharedPtr graph)
+         {
+             // check to see if any boundary surfaces are not set and if so put
+             // them into a set with tag 9999
+-            map<int, FaceSharedPtr> NotSet;
++            std::map<int, FaceSharedPtr> NotSet;
+ 
+             // loop over faceset and make a map of all faces only linked
+             // to one element
+@@ -784,9 +782,9 @@ void OutputNekpp::TransferComposites(MeshGraphSharedPtr graph)
+ 
+ void OutputNekpp::TransferDomain(MeshGraphSharedPtr graph)
+ {
+-    map<int, SpatialDomains::CompositeMap> &domain = graph->GetDomain();
++    std::map<int, SpatialDomains::CompositeMap> &domain = graph->GetDomain();
+ 
+-    string list;
++    std::string list;
+ 
+     for (auto &it : m_mesh->m_composite)
+     {
+@@ -796,7 +794,7 @@ void OutputNekpp::TransferDomain(MeshGraphSharedPtr graph)
+             {
+                 list += ",";
+             }
+-            list += boost::lexical_cast<string>(it.second->m_id);
++            list += boost::lexical_cast<std::string>(it.second->m_id);
+         }
+     }
+ 
+diff --git a/library/NekMesh/Module/ProcessModules/ProcessVarOpti/Evaluator.hxx b/library/NekMesh/Module/ProcessModules/ProcessVarOpti/Evaluator.hxx
+index 63bd9fea6..57a12130c 100644
+--- a/library/NekMesh/Module/ProcessModules/ProcessVarOpti/Evaluator.hxx
++++ b/library/NekMesh/Module/ProcessModules/ProcessVarOpti/Evaluator.hxx
+@@ -44,7 +44,6 @@ namespace Nektar
+ namespace NekMesh
+ {
+ 
+-using namespace std;
+ 
+ /**
+  * @brief Calculate determinant of input matrix.
+diff --git a/library/NekMesh/Module/ProcessModules/ProcessVarOpti/Hessian.hxx b/library/NekMesh/Module/ProcessModules/ProcessVarOpti/Hessian.hxx
+index f8ed65b00..8f7dcb709 100644
+--- a/library/NekMesh/Module/ProcessModules/ProcessVarOpti/Hessian.hxx
++++ b/library/NekMesh/Module/ProcessModules/ProcessVarOpti/Hessian.hxx
+@@ -55,8 +55,8 @@ template <int DIM> int NodeOpti::IsIndefinite()
+ 
+ template <> int NodeOpti::IsIndefinite<2>()
+ {
+-    vector<NekDouble> eigR(2);
+-    vector<NekDouble> eigI(2);
++    std::vector<NekDouble> eigR(2);
++    std::vector<NekDouble> eigI(2);
+     NekMatrix<NekDouble> H(2, 2);
+     H(0, 0) = m_grad[2];
+     H(1, 0) = m_grad[3];
+@@ -69,9 +69,9 @@ template <> int NodeOpti::IsIndefinite<2>()
+     NekDouble dum;
+ 
+     DNekMat eval(nVel, nVel, 0.0, eDIAGONAL);
+-    vector<NekDouble> vl(nVel * nVel);
+-    vector<NekDouble> work(worklen);
+-    vector<NekDouble> wi(nVel);
++    std::vector<NekDouble> vl(nVel * nVel);
++    std::vector<NekDouble> work(worklen);
++    std::vector<NekDouble> wi(nVel);
+ 
+     Lapack::Dgeev(jobvl, jobvr, nVel, H.GetRawPtr(), nVel, &(eval.GetPtr())[0],
+                   &wi[0], &vl[0], nVel, &dum, nVel, &work[0], worklen, info);
+@@ -95,8 +95,8 @@ template <> int NodeOpti::IsIndefinite<2>()
+ 
+ template <> int NodeOpti::IsIndefinite<3>()
+ {
+-    vector<NekDouble> eigR(3);
+-    vector<NekDouble> eigI(3);
++    std::vector<NekDouble> eigR(3);
++    std::vector<NekDouble> eigI(3);
+     NekMatrix<NekDouble> H(3, 3);
+     H(0, 0) = m_grad[3];
+     H(1, 0) = m_grad[4];
+@@ -114,9 +114,9 @@ template <> int NodeOpti::IsIndefinite<3>()
+     NekDouble dum;
+ 
+     DNekMat eval(nVel, nVel, 0.0, eDIAGONAL);
+-    vector<NekDouble> vl(nVel * nVel);
+-    vector<NekDouble> work(worklen);
+-    vector<NekDouble> wi(nVel);
++    std::vector<NekDouble> vl(nVel * nVel);
++    std::vector<NekDouble> work(worklen);
++    std::vector<NekDouble> wi(nVel);
+ 
+     Lapack::Dgeev(jobvl, jobvr, nVel, H.GetRawPtr(), nVel, &(eval.GetPtr())[0],
+                   &wi[0], &vl[0], nVel, &dum, nVel, &work[0], worklen, info);
+diff --git a/library/NekMesh/Module/ProcessModules/ProcessVarOpti/NodeOpti.h b/library/NekMesh/Module/ProcessModules/ProcessVarOpti/NodeOpti.h
+index e501b1522..98d6d2b5e 100644
+--- a/library/NekMesh/Module/ProcessModules/ProcessVarOpti/NodeOpti.h
++++ b/library/NekMesh/Module/ProcessModules/ProcessVarOpti/NodeOpti.h
+@@ -258,7 +258,7 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
+     NekDouble ep =
+         m_minJac < 0.0 ? sqrt(1e-8 + 0.04 * m_minJac * m_minJac) : 1e-4;
+     NekDouble jacIdeal[DIM][DIM], jacDet;
+-    m_grad = vector<NekDouble>(DIM == 2 ? 5 : 9, 0.0);
++    m_grad = std::vector<NekDouble>(DIM == 2 ? 5 : 9, 0.0);
+ 
+     switch (m_opti)
+     {
+@@ -307,7 +307,7 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
+ 
+                         NekDouble absIdealMapDet =
+                             fabs(typeIt.second[i]->maps[k][9]);
+-                        minJacNew = min(minJacNew, jacDet);
++                        minJacNew = std::min(minJacNew, jacDet);
+ 
+                         NekDouble Emat[DIM][DIM];
+                         EMatrix<DIM>(jacIdeal, Emat);
+@@ -317,15 +317,15 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
+                             0.5 *
+                             (jacDet + sqrt(jacDet * jacDet + 4.0 * ep * ep));
+ 
+-                        if (sigma < numeric_limits<double>::min() && !gradient)
++                        if (sigma < std::numeric_limits<double>::min() && !gradient)
+                         {
+-                            return numeric_limits<double>::max();
++                            return std::numeric_limits<double>::max();
+                         }
+-                        ASSERTL0(sigma > numeric_limits<double>::min(),
++                        ASSERTL0(sigma > std::numeric_limits<double>::min(),
+                                  std::string("dividing by zero ") +
+-                                     boost::lexical_cast<string>(sigma) + " " +
+-                                     boost::lexical_cast<string>(jacDet) + " " +
+-                                     boost::lexical_cast<string>(ep));
++                                     boost::lexical_cast<std::string>(sigma) + " " +
++                                     boost::lexical_cast<std::string>(jacDet) + " " +
++                                     boost::lexical_cast<std::string>(ep));
+ 
+                         NekDouble lsigma = log(sigma);
+                         integral += quadW[k] * absIdealMapDet *
+@@ -510,16 +510,16 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
+                             0.5 *
+                             (jacDet + sqrt(jacDet * jacDet + 4.0 * ep * ep));
+ 
+-                        if (sigma < numeric_limits<double>::min() && !gradient)
++                        if (sigma < std::numeric_limits<double>::min() && !gradient)
+                         {
+-                            return numeric_limits<double>::max();
++                            return std::numeric_limits<double>::max();
+                         }
+ 
+-                        ASSERTL0(sigma > numeric_limits<double>::min(),
++                        ASSERTL0(sigma > std::numeric_limits<double>::min(),
+                                  std::string("dividing by zero ") +
+-                                     boost::lexical_cast<string>(sigma) + " " +
+-                                     boost::lexical_cast<string>(jacDet) + " " +
+-                                     boost::lexical_cast<string>(ep));
++                                     boost::lexical_cast<std::string>(sigma) + " " +
++                                     boost::lexical_cast<std::string>(jacDet) + " " +
++                                     boost::lexical_cast<std::string>(ep));
+ 
+                         NekDouble lsigma = log(sigma);
+                         integral += quadW[k] * absIdealMapDet *
+@@ -682,16 +682,16 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
+                             0.5 *
+                             (jacDet + sqrt(jacDet * jacDet + 4.0 * ep * ep));
+ 
+-                        if (sigma < numeric_limits<double>::min() && !gradient)
++                        if (sigma < std::numeric_limits<double>::min() && !gradient)
+                         {
+-                            return numeric_limits<double>::max();
++                            return std::numeric_limits<double>::max();
+                         }
+ 
+-                        ASSERTL0(sigma > numeric_limits<double>::min(),
++                        ASSERTL0(sigma > std::numeric_limits<double>::min(),
+                                  std::string("dividing by zero ") +
+-                                     boost::lexical_cast<string>(sigma) + " " +
+-                                     boost::lexical_cast<string>(jacDet) + " " +
+-                                     boost::lexical_cast<string>(ep));
++                                     boost::lexical_cast<std::string>(sigma) + " " +
++                                     boost::lexical_cast<std::string>(jacDet) + " " +
++                                     boost::lexical_cast<std::string>(ep));
+ 
+                         NekDouble W = frob / DIM / pow(fabs(sigma), 2.0 / DIM);
+                         integral += quadW[k] * absIdealMapDet * W;
+@@ -855,16 +855,16 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
+                             0.5 *
+                             (jacDet + sqrt(jacDet * jacDet + 4.0 * ep * ep));
+ 
+-                        if (sigma < numeric_limits<double>::min() && !gradient)
++                        if (sigma < std::numeric_limits<double>::min() && !gradient)
+                         {
+-                            return numeric_limits<double>::max();
++                            return std::numeric_limits<double>::max();
+                         }
+ 
+-                        ASSERTL0(sigma > numeric_limits<double>::min(),
++                        ASSERTL0(sigma > std::numeric_limits<double>::min(),
+                                  std::string("dividing by zero ") +
+-                                     boost::lexical_cast<string>(sigma) + " " +
+-                                     boost::lexical_cast<string>(jacDet) + " " +
+-                                     boost::lexical_cast<string>(ep));
++                                     boost::lexical_cast<std::string>(sigma) + " " +
++                                     boost::lexical_cast<std::string>(jacDet) + " " +
++                                     boost::lexical_cast<std::string>(ep));
+ 
+                         NekDouble W = frob / sigma;
+                         integral += quadW[k] * absIdealMapDet * W;
+diff --git a/library/NekMesh/Optimisation/BGFS-B.cpp b/library/NekMesh/Optimisation/BGFS-B.cpp
+index bf4598a00..616ef80a5 100644
+--- a/library/NekMesh/Optimisation/BGFS-B.cpp
++++ b/library/NekMesh/Optimisation/BGFS-B.cpp
+@@ -38,7 +38,6 @@
+ #include <limits>
+ #include <set>
+ 
+-using namespace std;
+ namespace Nektar
+ {
+ namespace NekMesh
+@@ -53,7 +52,7 @@ bool BGFSUpdate(OptiObjSharedPtr opti, DNekMat &J, DNekMat &B, DNekMat &H)
+     Array<OneD, NekDouble> ui = opti->Getui();
+     Array<OneD, NekDouble> li = opti->Getli();
+ 
+-    set<int> Fset;
++    std::set<int> Fset;
+     Array<OneD, NekDouble> ti(xi.size());
+     for (int i = 0; i < ti.size(); i++)
+     {
+diff --git a/library/SpatialDomains/MeshComponents.h b/library/SpatialDomains/MeshComponents.h
+index d6dacc139..15e164e8a 100644
+--- a/library/SpatialDomains/MeshComponents.h
++++ b/library/SpatialDomains/MeshComponents.h
+@@ -39,7 +39,7 @@
+ #include <LibUtilities/LinearAlgebra/NekPoint.hpp>
+ #include <SpatialDomains/Geometry0D.h>
+ #include <SpatialDomains/SpatialDomainsDeclspec.h>
+-#include <set>
++//#include <set>
+ 
+ namespace Nektar
+ {
+diff --git a/library/StdRegions/StdExpansion.h b/library/StdRegions/StdExpansion.h
+index 635bd406e..1ae88270d 100644
+--- a/library/StdRegions/StdExpansion.h
++++ b/library/StdRegions/StdExpansion.h
+@@ -41,7 +41,7 @@
+ #include <vector>
+ 
+ #include <boost/core/ignore_unused.hpp>
+-#include <set>
++//#include <set>
+ 
+ #include <LibUtilities/LinearAlgebra/NekTypeDefs.hpp>
+ #include <StdRegions/StdMatrixKey.h>
+diff --git a/solvers/CMakeLists.txt b/solvers/CMakeLists.txt
+index 28d0e0f76..99b1df828 100644
+--- a/solvers/CMakeLists.txt
++++ b/solvers/CMakeLists.txt
+@@ -10,6 +10,7 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
+ 
+     IF (SOLVER_LIBRARY_SOURCES)
+         ADD_LIBRARY(${name}-obj OBJECT ${SOLVER_LIBRARY_SOURCES})
++        SET_PROPERTY(TARGET ${name}-obj PROPERTY POSITION_INDEPENDENT_CODE ON)
+         ADD_DEPENDENCIES(${name}-obj SolverUtils)
+         LIST(APPEND SOLVER_SOURCES $<TARGET_OBJECTS:${name}-obj>)
+     ENDIF()
+@@ -22,6 +23,26 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
+         COMPONENT ${SOLVER_COMPONENT} DEPENDS SolverUtils SOURCES ${SOLVER_SOURCES})
+ ENDMACRO()
+ 
++MACRO(ADD_SOLVER_LIBRARY name)
++    CMAKE_PARSE_ARGUMENTS(SOLVERLIB "" "" "SOURCES;HEADERS;DEPENDS" ${ARGN} )
++
++    # If an object library was already buuilt using ADD_SOLVER_EXECUTABLE, reuse that
++    IF (TARGET ${name}-obj)
++      SET(SOLVERLIB_SRCS_USED $<TARGET_OBJECTS:${name}-obj>)
++    ELSE()
++      SET(SOLVERLIB_SRCS_USED ${SOLVERLIB_SOURCES})
++    ENDIF()
++    # Append "Lib" suffix to target name, otherwise it clashes with the executable (final output will still be called ${name})
++    ADD_NEKTAR_LIBRARY(${name}
++                       TARGET_SUFFIX Lib
++                       LINK_MODE PRIVATE
++                       SOURCES ${SOLVERLIB_SRCS_USED}
++                       HEADERS ${SOLVERLIB_HEADERS}
++                       DEPENDS ${SOLVERLIB_DEPENDS}
++                       SUMMARY "Nektar++ ${name} library"
++                       DESCRIPTION "This library provides functionality used by ${name}.")
++ENDMACRO()
++
+ MACRO(ADD_SOLVER_UTILITY name solver)
+     CMAKE_PARSE_ARGUMENTS(UTIL "USELIBRARY" "COMPONENT" "SOURCES" ${ARGN})
+ 
+diff --git a/solvers/CompressibleFlowSolver/CMakeLists.txt b/solvers/CompressibleFlowSolver/CMakeLists.txt
+index d116f722d..9a29903eb 100644
+--- a/solvers/CompressibleFlowSolver/CMakeLists.txt
++++ b/solvers/CompressibleFlowSolver/CMakeLists.txt
+@@ -64,6 +64,78 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
+         Preconditioner/PreconCfsOp.cpp
+         Preconditioner/PreconCfsBRJ.cpp
+         )
++
++        SET(CompressibleFlowSolverHeaders
++          ArtificialDiffusion/NonSmoothShockCapture.h
++          ArtificialDiffusion/ArtificialDiffusion.h
++          BoundaryConditions/StagnationInflowBC.h
++          BoundaryConditions/SymmetryBC.h
++          BoundaryConditions/ExtrapOrder0BC.h
++          BoundaryConditions/WallViscousBC.h
++          BoundaryConditions/RiemannInvariantBC.h
++          BoundaryConditions/IsentropicVortexBC.h
++          BoundaryConditions/TimeDependentBC.h
++          BoundaryConditions/PressureOutflowBC.h
++          BoundaryConditions/WallBC.h
++          BoundaryConditions/PressureInflowFileBC.h
++          BoundaryConditions/PressureMachTemperatureBC.h
++          BoundaryConditions/CFSBndCond.h
++          BoundaryConditions/RinglebFlowBC.h
++          BoundaryConditions/PressureOutflowNonReflectiveBC.h
++          ArtificialDiffusion/NonSmoothShockCapture.h
++          ArtificialDiffusion/ArtificialDiffusion.h
++          BoundaryConditions/StagnationInflowBC.h
++          BoundaryConditions/SymmetryBC.h
++          BoundaryConditions/ExtrapOrder0BC.h
++          BoundaryConditions/WallViscousBC.h
++          BoundaryConditions/RiemannInvariantBC.h
++          BoundaryConditions/IsentropicVortexBC.h
++          BoundaryConditions/TimeDependentBC.h
++          BoundaryConditions/PressureOutflowBC.h
++          BoundaryConditions/WallBC.h
++          BoundaryConditions/PressureInflowFileBC.h
++          BoundaryConditions/PressureMachTemperatureBC.h
++          BoundaryConditions/CFSBndCond.h
++          BoundaryConditions/RinglebFlowBC.h
++          BoundaryConditions/PressureOutflowNonReflectiveBC.h
++          Diffusion/DiffusionLDGNS.h
++          EquationSystems/CompressibleFlowSystemImplicit.h
++          EquationSystems/EulerCFE.h
++          EquationSystems/NavierStokesImplicitCFE.h
++          EquationSystems/EulerImplicitCFE.h
++          EquationSystems/NavierStokesCFEAxisym.h
++          EquationSystems/NavierStokesCFE.h
++          EquationSystems/IsentropicVortex.h
++          EquationSystems/RinglebFlow.h
++          Forcing/ForcingQuasi1D.h
++          Forcing/ForcingAxiSymmetric.h
++          EquationSystems/CompressibleFlowSystem.h
++          Misc/PengRobinsonEoS.h
++          Misc/IdealGasEoS.h
++          Misc/VariableConverter.h
++          Misc/VanDerWaalsEoS.h
++          Misc/RedlichKwongEoS.h
++          Misc/EquationOfState.h
++          Preconditioner/PreconCfs.h
++          Preconditioner/PreconCfsBRJ.h
++          Preconditioner/PreconCfsOp.h
++          RiemannSolvers/RoeSolverSIMD.h
++          RiemannSolvers/HLLCSolver.h
++          RiemannSolvers/AUSM2Solver.h
++          RiemannSolvers/AverageSolver.h
++          RiemannSolvers/CompressibleSolver.h
++          RiemannSolvers/ExactSolverToro.h
++          RiemannSolvers/RoeSolver.h
++          RiemannSolvers/AUSM1Solver.h
++          RiemannSolvers/LaxFriedrichsSolver.h
++          RiemannSolvers/AUSM0Solver.h
++          RiemannSolvers/AUSM3Solver.h
++          RiemannSolvers/HLLSolver.h
++       )
++
++    # Create separate library. No need to pass source files, as the executable's LIBRARY_SOURCES objects will be reused
++    ADD_SOLVER_LIBRARY(CompressibleFlowSolver HEADERS ${CompressibleFlowSolverHeaders} DEPENDS SolverUtils)
++
+     IF(NEKTAR_BUILD_UNIT_TESTS)
+       ADD_SUBDIRECTORY(RiemannSolvers/UnitTests)
+     ENDIF()
+diff --git a/solvers/CompressibleFlowSolver/Misc/RedlichKwongEoS.h b/solvers/CompressibleFlowSolver/Misc/RedlichKwongEoS.h
+index 117efc3a1..ce94d1560 100644
+--- a/solvers/CompressibleFlowSolver/Misc/RedlichKwongEoS.h
++++ b/solvers/CompressibleFlowSolver/Misc/RedlichKwongEoS.h
+@@ -39,7 +39,6 @@
+ 
+ #include <LibUtilities/SimdLib/io.hpp>
+ 
+-using namespace std;
+ 
+ namespace Nektar
+ {
+diff --git a/tests/Metric.cpp b/tests/Metric.cpp
+index a945b02c4..a3f925e61 100644
+--- a/tests/Metric.cpp
++++ b/tests/Metric.cpp
+@@ -35,7 +35,6 @@
+ #include <Metric.h>
+ #include <boost/algorithm/string.hpp>
+ 
+-using namespace std;
+ 
+ namespace Nektar
+ {
+@@ -53,14 +52,14 @@ Metric::Metric(TiXmlElement *metric, bool generate)
+ {
+     if (!metric->Attribute("id"))
+     {
+-        cerr << "Metric has no ID" << endl;
++        std::cerr << "Metric has no ID" << std::endl;
+     }
+     if (!metric->Attribute("type"))
+     {
+-        cerr << "Metric has no type" << endl;
++        std::cerr << "Metric has no type" << std::endl;
+     }
+     m_id   = atoi(metric->Attribute("id"));
+-    m_type = boost::to_upper_copy(string(metric->Attribute("type")));
++    m_type = boost::to_upper_copy(std::string(metric->Attribute("type")));
+ }
+ 
+ /**
+diff --git a/tests/MetricRegex.cpp b/tests/MetricRegex.cpp
+index 1814ac804..097e27fa4 100644
+--- a/tests/MetricRegex.cpp
++++ b/tests/MetricRegex.cpp
+@@ -38,8 +38,6 @@
+ #include <boost/core/ignore_unused.hpp>
+ #include <boost/lexical_cast.hpp>
+ 
+-using namespace std;
+-
+ namespace Nektar
+ {
+ std::string MetricRegex::type =
+@@ -139,7 +137,7 @@ bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
+             // Error if no fields in regex then throw an error.
+             if (matches.size() == 1)
+             {
+-                cerr << "No test sections in regex!" << endl;
++                std::cerr << "No test sections in regex!" << std::endl;
+                 return false;
+             }
+ 
+@@ -160,9 +158,9 @@ bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
+                     }
+                     catch (boost::bad_lexical_cast &e)
+                     {
+-                        cerr << "Could not convert one of " << match
++                        std::cerr << "Could not convert one of " << match
+                              << " (match) or " << okValues[i - 1].m_value
+-                             << " (comparison value) to double" << endl;
++                             << " (comparison value) to double" << std::endl;
+                         success = false;
+                         continue;
+                     }
+@@ -177,11 +175,11 @@ bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
+                         }
+                         else
+                         {
+-                            cerr << "Failed tolerance match." << endl;
+-                            cerr << "  Expected: " << okValues[i - 1].m_value
++                            std::cerr << "Failed tolerance match." << std::endl;
++                            std::cerr << "  Expected: " << okValues[i - 1].m_value
+                                  << " +/- " << okValues[i - 1].m_tolerance
+-                                 << endl;
+-                            cerr << "  Result:   " << match << endl;
++                                 << std::endl;
++                            std::cerr << "  Result:   " << match << std::endl;
+                             success = false;
+                         }
+                     }
+@@ -197,9 +195,9 @@ bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
+                     }
+                     catch (boost::bad_lexical_cast &e)
+                     {
+-                        cerr << "Could not convert one of " << match
++                        std::cerr << "Could not convert one of " << match
+                              << " (match) or " << okValues[i - 1].m_value
+-                             << " (comparison value) to an integer" << endl;
++                             << " (comparison value) to an integer" << std::endl;
+                         success = false;
+                         continue;
+                     }
+@@ -214,11 +212,11 @@ bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
+                         }
+                         else
+                         {
+-                            cerr << "Failed tolerance match." << endl;
+-                            cerr << "  Expected: " << okValues[i - 1].m_value
++                            std::cerr << "Failed tolerance match." << std::endl;
++                            std::cerr << "  Expected: " << okValues[i - 1].m_value
+                                  << " +/- " << okValues[i - 1].m_intTolerance
+-                                 << endl;
+-                            cerr << "  Result:   " << match << endl;
++                                 << std::endl;
++                            std::cerr << "  Result:   " << match << std::endl;
+                             success = false;
+                         }
+                     }
+@@ -234,10 +232,10 @@ bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
+                         }
+                         else
+                         {
+-                            cerr << "Failed case-insensitive match." << endl;
+-                            cerr << "  Expected: " << okValues[i - 1].m_value
+-                                 << endl;
+-                            cerr << "  Result:   " << match << endl;
++                            std::cerr << "Failed case-insensitive match." << std::endl;
++                            std::cerr << "  Expected: " << okValues[i - 1].m_value
++                                 << std::endl;
++                            std::cerr << "  Result:   " << match << std::endl;
+                             success = false;
+                         }
+                     }
+@@ -254,8 +252,8 @@ bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
+ 
+     if (m_matches.size() != 0)
+     {
+-        cerr << "Expected " << nMatch << " matches but only found "
+-             << (nMatch - m_matches.size()) << "!" << endl;
++        std::cerr << "Expected " << nMatch << " matches but only found "
++             << (nMatch - m_matches.size()) << "!" << std::endl;
+         success = false;
+     }
+ 
+@@ -284,7 +282,7 @@ void MetricRegex::v_Generate(std::istream &pStdout, std::istream &pStderr)
+             // Error if no fields in regex then throw an error.
+             ASSERTL0(matches.size() != 1, "No test sections in regex!");
+ 
+-            vector<MetricRegexFieldValue> okValues;
++            std::vector<MetricRegexFieldValue> okValues;
+ 
+             for (int i = 1; i < matches.size(); ++i)
+             {
+diff --git a/tests/TestData.cpp b/tests/TestData.cpp
+index f5a18df13..8bb26f996 100644
+--- a/tests/TestData.cpp
++++ b/tests/TestData.cpp
+@@ -39,8 +39,6 @@
+ #include <TestData.h>
+ #include <TestException.hpp>
+ 
+-using namespace std;
+-
+ namespace Nektar
+ {
+ TestData::TestData(const fs::path &pFilename, po::variables_map &pVm)
+@@ -53,7 +51,7 @@ TestData::TestData(const fs::path &pFilename, po::variables_map &pVm)
+ 
+     ASSERTL0(loadOkay,
+              "Failed to load test definition file: " + pFilename.string() +
+-                 "\n" + string(m_doc->ErrorDesc()));
++                 "\n" + std::string(m_doc->ErrorDesc()));
+ 
+     Parse(m_doc);
+ }
+@@ -87,8 +85,8 @@ std::string TestData::GetMetricType(unsigned int pId) const
+     // read the property name
+     ASSERTL0(m_metrics[pId]->Attribute("type"),
+              "Missing 'type' attribute in metric " +
+-                 boost::lexical_cast<string>(pId) + ").");
+-    return boost::to_upper_copy(string(m_metrics[pId]->Attribute("type")));
++                 boost::lexical_cast<std::string>(pId) + ").");
++    return boost::to_upper_copy(std::string(m_metrics[pId]->Attribute("type")));
+ }
+ 
+ unsigned int TestData::GetNumMetrics() const
+@@ -152,7 +150,7 @@ Command TestData::ParseCommand(TiXmlElement *elmt) const
+     ASSERTL0(tmp, "Cannot find 'parameters' for test.");
+     if (tmp->GetText())
+     {
+-        cmd.m_parameters = string(tmp->GetText());
++        cmd.m_parameters = std::string(tmp->GetText());
+     }
+ 
+     // Find parallel processes tah.
+@@ -179,7 +177,7 @@ void TestData::Parse(TiXmlDocument *pDoc)
+     // Find description tag.
+     tmp = testElement->FirstChildElement("description");
+     ASSERTL0(tmp, "Cannot find 'description' for test.");
+-    m_description = string(tmp->GetText());
++    m_description = std::string(tmp->GetText());
+ 
+     // Find command(s) to run.
+     if (m_cmdoptions.count("executable"))
+@@ -227,10 +225,10 @@ void TestData::Parse(TiXmlDocument *pDoc)
+         while (tmp)
+         {
+             DependentFile f;
+-            f.m_filename = string(tmp->GetText());
++            f.m_filename = std::string(tmp->GetText());
+             if (tmp->Attribute("description"))
+             {
+-                f.m_description = string(tmp->Attribute("description"));
++                f.m_description = std::string(tmp->Attribute("description"));
+             }
+             m_files.push_back(f);
+             tmp = tmp->NextSiblingElement("file");
+diff --git a/tests/Tester.cpp.in b/tests/Tester.cpp.in
+index c2d1ac41c..c36d20bd1 100644
+--- a/tests/Tester.cpp.in
++++ b/tests/Tester.cpp.in
+@@ -45,7 +45,6 @@
+ 
+ #cmakedefine NEKTAR_TEST_FORCEMPIEXEC 1
+ 
+-using namespace std;
+ using namespace Nektar;
+ 
+ // Define some namespace aliases
+@@ -61,22 +60,22 @@ std::string PortablePath(const boost::filesystem::path& path)
+ int main(int argc, char *argv[])
+ {
+     int status = 0;
+-    string command;
++    std::string command;
+ 
+-    // Set up command line options.
++    // std::set up command line options.
+     po::options_description desc("Available options");
+     desc.add_options()
+         ("help,h",                 "Produce this help message.")
+         ("verbose,v",              "Turn on verbosity.")
+-        ("generate-metric,g",      po::value<vector<int> >(),
++        ("generate-metric,g",      po::value<std::vector<int> >(),
+                                    "Generate a single metric.")
+         ("generate-all-metrics,a", "Generate all metrics.")
+-        ("executable,e",           po::value<string>(),
++        ("executable,e",           po::value<std::string>(),
+                                    "Use specified executable.");
+ 
+     po::options_description hidden("Hidden options");
+     hidden.add_options()
+-        ("input-file",   po::value<string>(), "Input filename");
++        ("input-file",   po::value<std::string>(), "Input filename");
+ 
+     po::options_description cmdline_options("Command-line options");
+     cmdline_options.add(hidden).add(desc);
+@@ -95,31 +94,31 @@ int main(int argc, char *argv[])
+                   options(cmdline_options).positional(p).run(), vm);
+         po::notify(vm);
+     }
+-    catch (const exception& e)
++    catch (const std::exception& e)
+     {
+-        cerr << e.what() << endl;
+-        cerr << desc;
++        std::cerr << e.what() << std::endl;
++        std::cerr << desc;
+         return 1;
+     }
+ 
+     if (vm.count("help") || vm.count("input-file") != 1) {
+-        cerr << "Usage: Tester [options] input-file.tst" << endl;
+-        cout << desc;
++        std::cerr << "Usage: Tester [options] input-file.tst" << std::endl;
++        std::cout << desc;
+         return 1;
+     }
+ 
+     bool verbose = vm.count("verbose");
+ 
+-    // Set up set containing metrics to be generated.
+-    vector<int> metricGenVec;
++    // std::set up std::set containing metrics to be generated.
++    std::vector<int> metricGenVec;
+     if (vm.count("generate-metric"))
+     {
+-        metricGenVec = vm["generate-metric"].as<vector<int> >();
++        metricGenVec = vm["generate-metric"].as<std::vector<int> >();
+     }
+-    set<int> metricGen(metricGenVec.begin(), metricGenVec.end());
++    std::set<int> metricGen(metricGenVec.begin(), metricGenVec.end());
+ 
+     // Path to test definition file
+-    const fs::path specFile(vm["input-file"].as<string>());
++    const fs::path specFile(vm["input-file"].as<std::string>());
+ 
+     // Parent path of test definition file containing dependent files
+     fs::path specPath = specFile.parent_path();
+@@ -129,11 +128,11 @@ int main(int argc, char *argv[])
+         specPath = fs::current_path();
+     }
+ 
+-    string specFileStem = specFile.stem().string();
++    std::string specFileStem = specFile.stem().string();
+ 
+     // Temporary directory to create and in which to conduct test
+     const fs::path tmpDir = fs::current_path()
+-        / fs::path("tmp_" + specFileStem + "_" 
++        / fs::path("tmp_" + specFileStem + "_"
+                           + fs::unique_path("%%%%%%").string());
+ 
+     // The current directory
+@@ -143,7 +142,7 @@ int main(int argc, char *argv[])
+     {
+         if (verbose)
+         {
+-            cerr << "Reading test file definition: " << specFile << endl;
++            std::cerr << "Reading test file definition: " << specFile << std::endl;
+         }
+ 
+         // Parse the test file
+@@ -151,14 +150,14 @@ int main(int argc, char *argv[])
+ 
+         if (verbose && file.GetNumMetrics() > 0)
+         {
+-            cerr << "Creating metrics:" << endl;
++            std::cerr << "Creating metrics:" << std::endl;
+         }
+ 
+         // Generate the metric objects
+-        vector<MetricSharedPtr> metrics;
++        std::vector<MetricSharedPtr> metrics;
+         for (unsigned int i = 0; i < file.GetNumMetrics(); ++i)
+         {
+-            set<int>::iterator it = metricGen.find(file.GetMetricId(i));
++            std::set<int>::iterator it = metricGen.find(file.GetMetricId(i));
+             bool genMetric = it != metricGen.end() ||
+                              (vm.count("generate-all-metrics") > 0);
+ 
+@@ -170,8 +169,8 @@ int main(int argc, char *argv[])
+ 
+             if (verbose)
+             {
+-                cerr << "  - ID " << metrics.back()->GetID() << ": "
+-                     << metrics.back()->GetType() << endl;
++                std::cerr << "  - ID " << metrics.back()->GetID() << ": "
++                     << metrics.back()->GetType() << std::endl;
+             }
+ 
+             if (it != metricGen.end())
+@@ -182,14 +181,14 @@ int main(int argc, char *argv[])
+ 
+         if (metricGen.size() != 0)
+         {
+-            string s = metricGen.size() == 1 ? "s" : "";
+-            set<int>::iterator it;
+-            cerr << "Unable to find metric"+s+" with ID"+s+" ";
++            std::string s = metricGen.size() == 1 ? "s" : "";
++            std::set<int>::iterator it;
++            std::cerr << "Unable to find metric"+s+" with ID"+s+" ";
+             for (it = metricGen.begin(); it != metricGen.end(); ++it)
+             {
+-                cerr << *it << " ";
++                std::cerr << *it << " ";
+             }
+-            cerr << endl;
++            std::cerr << std::endl;
+             return 1;
+         }
+ 
+@@ -201,7 +200,7 @@ int main(int argc, char *argv[])
+ 
+         if (verbose)
+         {
+-            cerr << "Creating working directory: " << tmpDir << endl;
++            std::cerr << "Creating working directory: " << tmpDir << std::endl;
+         }
+ 
+         // Create temporary directory
+@@ -212,7 +211,7 @@ int main(int argc, char *argv[])
+ 
+         if (verbose && file.GetNumDependentFiles())
+         {
+-            cerr << "Copying required files: " << endl;
++            std::cerr << "Copying required files: " << std::endl;
+         }
+ 
+         // Copy required files for this test from the test definition directory
+@@ -225,7 +224,7 @@ int main(int argc, char *argv[])
+             fs::path dest   = tmpDir   / source_file.filename();
+             if (verbose)
+             {
+-                cerr << "  - " << source << " -> " << dest << endl;
++                std::cerr << "  - " << source << " -> " << dest << std::endl;
+             }
+ 
+             if (fs::is_directory(source))
+@@ -250,15 +249,15 @@ int main(int argc, char *argv[])
+         // Copy opt file if exists to  to the temporary directory.
+         fs::path source_file("test.opt");
+         fs::path source = specPath / source_file;
+-        bool HaveOptFile = false; 
++        bool HaveOptFile = false;
+         if(fs::exists(source))
+         {
+             fs::path dest   = tmpDir   / source_file.filename();
+             if (verbose)
+             {
+-                cerr << "  - " << source << " -> " << dest << endl;
++                std::cerr << "  - " << source << " -> " << dest << std::endl;
+             }
+-            
++
+             if (fs::is_directory(source))
+             {
+                 fs::copy_directory(source, dest);
+@@ -276,10 +275,10 @@ int main(int argc, char *argv[])
+                 fs::copy_file(source, dest);
+ 	    }
+ 
+-            HaveOptFile = true; 
++            HaveOptFile = true;
+         }
+ 
+-        
++
+         // If we're Python, copy script too.
+ 
+         // Construct test command to run. Output from stdout and stderr are
+@@ -312,8 +311,8 @@ int main(int argc, char *argv[])
+                     command += "-hostfile hostfile ";
+                     if (system("echo 'localhost slots=12' > hostfile"))
+                     {
+-                        cerr << "Unable to write 'hostfile' in path '"
+-                             << fs::current_path() << endl;
++                        std::cerr << "Unable to write 'hostfile' in path '"
++                             << fs::current_path() << std::endl;
+                         status = 1;
+                     }
+                 }
+@@ -365,7 +364,7 @@ int main(int argc, char *argv[])
+             command += PortablePath(execPath);
+             if(HaveOptFile)
+             {
+-                command += " --useoptfile test.opt "; 
++                command += " --useoptfile test.opt ";
+             }
+             command += " ";
+             command += cmd.m_parameters;
+@@ -373,34 +372,34 @@ int main(int argc, char *argv[])
+         }
+ 
+         status = 0;
+-        string line;
++        std::string line;
+ 
+         if (verbose)
+         {
+-            cerr << "Running command: " << command << endl;
++            std::cerr << "Running command: " << command << std::endl;
+         }
+ 
+         // Run executable to perform test.
+         if (system(command.c_str()))
+         {
+-            cerr << "Error occurred running test:" << endl;
+-            cerr << "Command: " << command << endl;
++            std::cerr << "Error occurred running test:" << std::endl;
++            std::cerr << "Command: " << command << std::endl;
+             status = 1;
+         }
+ 
+         // Check output files exist
+         if (!(fs::exists("output.out") && fs::exists("output.err")))
+         {
+-            cerr << "One or more test output files are missing." << endl;
++            std::cerr << "One or more test output files are missing." << std::endl;
+             throw 1;
+         }
+ 
+         // Open output files and check they are readable
+-        ifstream vStdout("output.out");
+-        ifstream vStderr("output.err");
++        std::ifstream vStdout("output.out");
++        std::ifstream vStderr("output.err");
+         if (vStdout.bad() || vStderr.bad())
+         {
+-            cerr << "One or more test output files are unreadable." << endl;
++            std::cerr << "One or more test output files are unreadable." << std::endl;
+             throw 1;
+         }
+ 
+@@ -409,7 +408,7 @@ int main(int argc, char *argv[])
+         {
+             if (verbose && metrics.size())
+             {
+-                cerr << "Checking metrics:" << endl;
++                std::cerr << "Checking metrics:" << std::endl;
+             }
+ 
+             for (int i = 0; i < metrics.size(); ++i)
+@@ -419,12 +418,12 @@ int main(int argc, char *argv[])
+ 
+                 vStdout.clear();
+                 vStderr.clear();
+-                vStdout.seekg(0, ios::beg);
+-                vStderr.seekg(0, ios::beg);
++                vStdout.seekg(0, std::ios::beg);
++                vStderr.seekg(0, std::ios::beg);
+ 
+                 if (verbose)
+                 {
+-                    cerr << "  - " << (gen ? "generating" : "checking")
++                    std::cerr << "  - " << (gen ? "generating" : "checking")
+                          << " metric " << metrics[i]->GetID()
+                          << " (" << metrics[i]->GetType() << ")... ";
+                 }
+@@ -434,19 +433,19 @@ int main(int argc, char *argv[])
+                     status = 1;
+                     if (verbose)
+                     {
+-                        cerr << "failed!" << endl;
++                        std::cerr << "failed!" << std::endl;
+                     }
+                 }
+                 else if (verbose)
+                 {
+-                    cerr << "passed" << endl;
++                    std::cerr << "passed" << std::endl;
+                 }
+             }
+         }
+ 
+         if (verbose)
+         {
+-            cerr << endl << endl;
++            std::cerr << std::endl << std::endl;
+         }
+ 
+         // Dump output files to terminal for debugging purposes on fail.
+@@ -454,20 +453,20 @@ int main(int argc, char *argv[])
+         {
+             vStdout.clear();
+             vStderr.clear();
+-            vStdout.seekg(0, ios::beg);
+-            vStderr.seekg(0, ios::beg);
++            vStdout.seekg(0, std::ios::beg);
++            vStderr.seekg(0, std::ios::beg);
+ 
+-            cout << "=== Output ===" << endl;
++            std::cout << "=== Output ===" << std::endl;
+             while(vStdout.good())
+             {
+                 getline(vStdout, line);
+-                cout << line << endl;
++                std::cout << line << std::endl;
+             }
+-            cout << "=== Errors ===" << endl;
++            std::cout << "=== Errors ===" << std::endl;
+             while(vStderr.good())
+             {
+                 getline(vStderr, line);
+-                cout << line << endl;
++                std::cout << line << std::endl;
+             }
+         }
+ 
+@@ -480,7 +479,7 @@ int main(int argc, char *argv[])
+ 
+         if (verbose)
+         {
+-            cerr << "Removing working directory" << endl;
++            std::cerr << "Removing working directory" << std::endl;
+         }
+ 
+         // Repeatedly try deleting directory with sleep for filesystems which
+@@ -503,8 +502,8 @@ int main(int argc, char *argv[])
+                 i--;
+                 if (i > 0)
+                 {
+-                    cout << "Locked files encountered. "
+-                         << "Retring after 1ms..." << endl;
++                    std::cout << "Locked files encountered. "
++                         << "Retring after 1ms..." << std::endl;
+                 }
+                 else
+                 {
+@@ -527,26 +526,26 @@ int main(int argc, char *argv[])
+     }
+     catch (const fs::filesystem_error& e)
+     {
+-        cerr << "Filesystem operation error occurred:" << endl;
+-        cerr << "  " << e.what() << endl;
+-        cerr << "  Files left in " << tmpDir.string() << endl;
++        std::cerr << "Filesystem operation error occurred:" << std::endl;
++        std::cerr << "  " << e.what() << std::endl;
++        std::cerr << "  Files left in " << tmpDir.string() << std::endl;
+     }
+     catch (const TesterException &e)
+     {
+-        cerr << "Error occurred during test:" << endl;
+-        cerr << "  " << e.what() << endl;
+-        cerr << "  Files left in " << tmpDir.string() << endl;
++        std::cerr << "Error occurred during test:" << std::endl;
++        std::cerr << "  " << e.what() << std::endl;
++        std::cerr << "  Files left in " << tmpDir.string() << std::endl;
+     }
+     catch (const std::exception &e)
+     {
+-        cerr << "Unhandled exception during test:" << endl;
+-        cerr << "  " << e.what() << endl;
+-        cerr << "  Files left in " << tmpDir.string() << endl;
++        std::cerr << "Unhandled exception during test:" << std::endl;
++        std::cerr << "  " << e.what() << std::endl;
++        std::cerr << "  Files left in " << tmpDir.string() << std::endl;
+     }
+     catch (...)
+     {
+-        cerr << "Unknown error during test" << endl;
+-        cerr << "  Files left in " << tmpDir.string() << endl;
++        std::cerr << "Unknown error during test" << std::endl;
++        std::cerr << "  Files left in " << tmpDir.string() << std::endl;
+     }
+ 
+     // If a system error, return 2
