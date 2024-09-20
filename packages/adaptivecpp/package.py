@@ -84,6 +84,7 @@ class Adaptivecpp(CMakePackage):
 
     patch("allow-disable-find-cuda-23.10.0.patch", when="@23.10.0")
     patch("macos-non-apple-clang-24.02.0.patch", when="@24.02.0")
+    patch("macos-non-apple-clang-24.06.0.patch", when="@24.06.0")
 
     conflicts(
         "%gcc@:8",
@@ -156,12 +157,6 @@ class Adaptivecpp(CMakePackage):
             args.append(
                 "-DCLANG_EXECUTABLE_PATH:String={0}".format(llvm_clang_bin)
             )
-
-        else:
-            args += [
-                "-DCMAKE_C_FLAGS=-fopenmp",
-                "-DCMAKE_CXX_FLAGS=-fopenmp",
-            ]
 
         if ("+cuda" in spec) or ("+nvcxx" in spec):
             args += [
