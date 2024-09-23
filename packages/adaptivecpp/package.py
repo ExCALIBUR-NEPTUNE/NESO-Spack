@@ -12,7 +12,7 @@ from llnl.util import filesystem
 from spack import *
 
 """
-Install nvc++ version with soemthing like
+Install nvc++ version with something like
 
     spack install neso.adaptivecpp +nvcxx
 
