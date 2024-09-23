@@ -99,6 +99,22 @@ class Adaptivecpp(CMakePackage):
         "https://github.com/illuhad/hipSYCL/blob/master/doc/install-cuda.md",
     )
 
+    # If we build against llvm then nvc++ ends up trying to use the linker
+    # packaged with llvm and this ends up as a mess. Users should either do
+    # +cuda +omp_llvm or +nvcxx and not both within the same installation.
+    conflicts(
+        "+nvcxx",
+        when="+cuda",
+        msg="Cannot use nvc++ and llvm backends simultaneously."
+        "Choose one of +nvcxx or +cuda +omp_llvm.",
+    )
+    conflicts(
+        "+nvcxx",
+        when="+omp_llvm",
+        msg="Cannot use nvc++ and llvm backends simultaneously."
+        " Choose one of +nvcxx or +cuda +omp_llvm.",
+    )
+
     def cmake_args(self):
 
         spec = self.spec
@@ -218,13 +234,11 @@ class Adaptivecpp(CMakePackage):
         config_file_path = config_file_paths[0]
         with open(config_file_path) as f:
             config = json.load(f)
-        
+
         # There may be a separate cuda config file
         cuda_config = None
         cuda_config_file_path = None
-        config_file_paths = filesystem.find(
-            self.prefix, ("acpp-cuda.json",)
-        )
+        config_file_paths = filesystem.find(self.prefix, ("acpp-cuda.json",))
         if len(config_file_paths) > 0:
             cuda_config_file_path = config_file_paths[0]
             with open(cuda_config_file_path) as f:
@@ -235,7 +249,7 @@ class Adaptivecpp(CMakePackage):
         # 2. Fix stdlib: we need to make sure cuda-enabled binaries find
         #    the libc++.so and libc++abi.so dyn linked to the sycl
         #    ptx backend
-        
+
         # Find the rpaths for cpp
         rpaths = set()
         if "llvm" in self.spec:
@@ -259,7 +273,7 @@ class Adaptivecpp(CMakePackage):
             # the omp llvm backend may link against the libomp.so in llvm
             so_paths = filesystem.find(self.spec["llvm"].prefix, "libomp.so")
             rpaths.add(path.dirname(so_paths[0]))
-        
+
             # Add the rpaths for llvm c++
             default_cuda_link_line = "default-cuda-link-line"
             if cuda_config is not None:
@@ -277,8 +291,8 @@ class Adaptivecpp(CMakePackage):
             default_omp_link_line = "default-omp-link-line"
             if default_omp_link_line in config.keys():
                 config[default_omp_link_line] += " " + " ".join(
-                        "-Wl,-rpath {0}".format(p) for p in rpaths
-                    )
+                    "-Wl,-rpath {0}".format(p) for p in rpaths
+                )
 
         else:
             # If llvm is not in the spec then explicitly use "omp.library-only"
@@ -295,4 +309,3 @@ class Adaptivecpp(CMakePackage):
         if cuda_config is not None:
             with open(cuda_config_file_path, "w") as f:
                 json.dump(cuda_config, f, indent=2)
-
