@@ -79,7 +79,13 @@ class Adaptivecpp(CMakePackage):
     depends_on("llvm@9: +clang", when="+omp_llvm")
     depends_on("cuda", when="@23.10.0: +cuda")
     depends_on("cuda", when="+nvcxx")
-    depends_on("nvhpc@22.9:", when="+nvcxx", type="build")
+    
+    # If we directly add nvhpc as build then the Adaptivecpp cmake finds the
+    # openmp inside nvhpc. If we add nvhpc as link or run then nvhpc gets
+    # loaded as a runtime dependency which then breaks downstream cmake
+    # configuration. Downstream cmake finds nvc++ as the compiler which then
+    # breaks the downstream projects.
+    depends_on("nvhpc_transitive@22.9:", when="+nvcxx", type="run")
     depends_on("opencl@3.0", when="+opencl")
 
     patch("allow-disable-find-cuda-23.10.0.patch", when="@23.10.0")
