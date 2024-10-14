@@ -15,6 +15,22 @@ def _get_pkg_versions(pkg_name):
 
 
 class NvhpcTransitive(Package):
+    """
+    The AdaptiveCpp package depends on nvhpc however if the dependency type is
+    "build" then nvhpc is loaded at cmake time which breaks the cmake stage of
+    AdaptiveCpp as it finds nvhpc components as dependencies. If we set nvhpc
+    as a link or run dependency then spack loads nvhpc whenever AdaptiveCpp is
+    loaded and now downstream cmake breaks as it finds nvhpc components. If a
+    method exists to install nvhpc alongside AdaptiveCpp as a "dependency"
+    that is none of the current build, link or run types then this package can
+    be removed.
+
+    What this package does is to depend on nvhpc as "build" which ensures that
+    nvhpc is installed but not loaded at build time or runtime of AdaptiveCpp.
+    The downside is that a "spack gc" call might remove nvhpc as it is could be
+    treated as a ephemeral dependency.
+    """
+
     # Make a one-to-one correspondance between nvhpc versions and versions of
     # this package.
     available_versions = _get_pkg_versions("nvhpc")
