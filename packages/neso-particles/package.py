@@ -10,7 +10,8 @@ class NesoParticles(CMakePackage):
 
     git = "https://github.com/ExCALIBUR-NEPTUNE/NESO-Particles.git"
 
-    version("0.5.0", commit="ba6750d429fe15bbec9b9c507b795cd3117b79b4", preferred=True)
+    version("0.6.0", commit="516af5c961e89c6abe1122325b470565a6af1646", preferred=True)
+    version("0.5.0", commit="ba6750d429fe15bbec9b9c507b795cd3117b79b4")
     version("0.4.0", commit="c615974661e0f4c8d9db709d65d27cc2927bbfaf")
     version("0.3.1", commit="9c6b4626645f6aaaca478e4798f2fdee5dd2675b")
     version("0.3.0", commit="cb55184bb7196c210d8c3f4397f4a29808acd038")
