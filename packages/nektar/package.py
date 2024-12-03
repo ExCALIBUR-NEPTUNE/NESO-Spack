@@ -17,6 +17,7 @@ class Nektar(CMakePackage):
     git = "https://gitlab.nektar.info/nektar/nektar.git"
 
     version("master", branch="master", preferred=True)
+    version("5.7.0", commit="ebf2aec4f840729ffb2845ead6d462be6f6f341a")
     version("5.6.0", commit="bb87ccd8ad00fe0aec9c9e74b812b777186e1691")
     version("5.5.0", commit="4365d5d7156139f238db962deae5eb25e0437d12")
     version("5.4.0", commit="002bf62648ec667e10524ceb8a98bb1c21804130")
@@ -136,6 +137,7 @@ class Nektar(CMakePackage):
     depends_on("hdf5 +mpi +hl", when="+mpi+hdf5")
     depends_on("scotch ~mpi ~metis", when="~mpi+scotch")
     depends_on("scotch +mpi ~metis", when="+mpi+scotch")
+    depends_on("scotch@7: +mpi ~metis", when="@5.6.0: +mpi+scotch")
 
     extends("python@3:", when="+python")
 
