@@ -36,6 +36,7 @@ class NesoParticles(CMakePackage):
     depends_on("hdf5 +mpi +hl", type=("build", "link", "run"))
     depends_on("cmake@3.21:", type="build")
     depends_on("cmake@3.24:", type="build", when="@0.5.0:")
+    depends_on("cmake@3.24:", type="build", when="@working")
     depends_on("googletest@1.10.0: +gmock", type=("build", "link", "run"))
     depends_on("petsc +ptscotch", when="+petsc", type=("build", "link", "run"))
 
