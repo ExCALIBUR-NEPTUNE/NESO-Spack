@@ -57,7 +57,11 @@ class NesoParticles(CMakePackage):
             args.append("-DENABLE_NESO_PARTICLES_TESTS=OFF")
         if "+nvcxx" in self.spec:
             args.append("-DNESO_PARTICLES_DEVICE_TYPE=GPU")
-            args.append("-DHIPSYCL_TARGETS=cuda-nvcxx")
+            if "^hipsycl" in self.spec:
+                args.append("-DHIPSYCL_TARGETS=cuda-nvcxx")
+            elif "^adaptivecpp" in self.spec:
+                args.append("-DACPP_TARGETS=cuda-nvcxx")
+
         if "+petsc" in self.spec:
             args.append("-DNESO_PARTICLES_ENABLE_PETSC=ON")
 
