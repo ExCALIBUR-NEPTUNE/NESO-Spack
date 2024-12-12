@@ -143,7 +143,10 @@ class Neso(CMakePackage):
                     break
 
         if "+nvcxx" in self.spec:
-            args.append("-DHIPSYCL_TARGETS=cuda-nvcxx")
+            if "^hipsycl" in self.spec:
+                args.append("-DHIPSYCL_TARGETS=cuda-nvcxx")
+            elif "^adaptivecpp" in self.spec:
+                args.append("-DACPP_TARGETS=cuda-nvcxx")
             args.append("-DSYCL_DEVICE_FILTER=GPU")
 
         return args
