@@ -27,7 +27,6 @@ class NesoParticles(CMakePackage):
         "petsc",
         default=False,
         description="Builds with PETSc interfaces.",
-        when="@0.7.0:",
     )
 
     depends_on("mpi", type=("build", "link", "run"))
