@@ -113,8 +113,9 @@ class Nektar(CMakePackage):
 
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
-    depends_on("py-setuptools", when="@master")
-    depends_on("py-setuptools", when="@5.6.0:")
+    depends_on("py-setuptools", when="@master +python")
+    depends_on("py-setuptools", when="@5.6.0: +python")
+    depends_on("py-pip", when="+python")
 
     depends_on("blas")
     depends_on("zlib")
@@ -200,7 +201,7 @@ class Nektar(CMakePackage):
                 + "/setup.py"
             )
             with fs.working_dir(python_build_directory):
-                python("setup.py", "install", "--prefix", prefix)
+                pip("install", "--prefix", prefix, ".")
 
     def setup_run_environment(self, env):
         env.append_path(
