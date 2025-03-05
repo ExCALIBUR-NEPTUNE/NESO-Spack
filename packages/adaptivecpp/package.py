@@ -324,8 +324,10 @@ class Adaptivecpp(CMakePackage):
             # compiler to error. Here we add "--no-restrict-keyword" to the
             # acpp cuda compile and link arguments to disable nvc++ considering
             # "restrict" as a keyword.
-            cuda_config["default-cuda-link-line"] += " --no-restrict-keyword"
-            cuda_config["default-cuda-cxx-flags"] += " --no-restrict-keyword"
+            keys_to_add = ("default-cuda-link-line", "default-cuda-cxx-flags")
+            for kx in keys_to_add:
+                if kx in cuda_config.keys():
+                    cuda_config[kx] += " --no-restrict-keyword"
 
         # Replace the installed config file
         with open(config_file_path, "w") as f:
