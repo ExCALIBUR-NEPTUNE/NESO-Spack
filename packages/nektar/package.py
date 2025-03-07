@@ -127,6 +127,16 @@ class Nektar(CMakePackage):
         "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic",
         when="~python",
     )
+    # Pin boost to 1.74.0 on 5.3.0-2022-09-03 to avoid std::get issues with gcc newer than 11.2.0.
+    depends_on(
+        "boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic +python +numpy",
+        when="@5.3.0-2022-09-03%gcc@11.3.0: +python",
+    )
+    depends_on(
+        "boost@1.74.0 +thread +iostreams +filesystem +system +program_options +regex +pic",
+        when="@5.3.0-2022-09-03%gcc@11.3.0: ~python",
+    )
+
     depends_on("tinyxml", when="platform=darwin")
 
     depends_on("mpi", when="+mpi", type=("build", "link", "run"))
