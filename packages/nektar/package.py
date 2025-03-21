@@ -23,11 +23,10 @@ class Nektar(CMakePackage):
     version("5.4.0", commit="002bf62648ec667e10524ceb8a98bb1c21804130")
     version("5.3.0-2022-09-03", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945")
 
-    patch(
-        "add_compflow_solver_lib_v5.3.0_2022-09-03.patch", when="@5.3.0-2022-09-03"
-    )
+    patch("add_compflow_solver_lib_v5.3.0_2022-09-03.patch", when="@5.3.0-2022-09-03")
     patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0")
 
+    variant("cwipi", default=False, description="Builds with CWIPI support")
     variant("mpi", default=True, description="Builds with mpi support")
     variant("fftw", default=True, description="Builds with fftw support")
     variant("arpack", default=True, description="Builds with arpack support")
@@ -141,6 +140,7 @@ class Nektar(CMakePackage):
 
     extends("python@3:", when="+python")
 
+    conflicts("+cwipi", when="~mpi", msg="Nektar requires MPI support to build with CWIPI.")
     conflicts(
         "+hdf5", when="~mpi", msg="Nektar's hdf5 output is for parallel builds only"
     )
@@ -173,6 +173,7 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_SOLVER_SHALLOW_WATER=%s" % hasfeature("+shwater_solver"))
         args.append("-DNEKTAR_SOLVER_VORTEXWAVE=%s" % hasfeature("+vortexwave_solver"))
         args.append("-DNEKTAR_USE_ARPACK=%s" % hasfeature("+arpack"))
+        args.append("-DNEKTAR_USE_CWIPI=%s" % hasfeature("+cwipi"))
         args.append("-DNEKTAR_USE_FFTW=%s" % hasfeature("+fftw"))
         args.append("-DNEKTAR_USE_HDF5=%s" % hasfeature("+hdf5"))
         args.append("-DNEKTAR_USE_MKL=%s" % hasfeature("^intel-oneapi-mkl"))

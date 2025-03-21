@@ -32,6 +32,11 @@ class Adaptivecpp(CMakePackage):
     provides("sycl")
 
     version(
+        "24.10.0",
+        commit="7677cf6eefd8ab46d66168cd07ab042109448124",
+        submodules=True,
+    )
+    version(
         "24.06.0",
         commit="fc51dae9006d6858fc9c33148cc5f935bb56b075",
         submodules=True,
@@ -79,7 +84,21 @@ class Adaptivecpp(CMakePackage):
     depends_on("llvm@9: +clang", when="+omp_llvm")
     depends_on("cuda", when="@23.10.0: +cuda")
     depends_on("cuda", when="+nvcxx")
-    
+
+    # Version 24.10.0 llvm backends do not work with LLVM 19 so we restrict
+    # llvm to versions 15 to 18 as those are the versions the AdaptiveCpp CI
+    # runs on.
+    depends_on(
+        "llvm@15:18 +clang",
+        when="@24.10.0 +cuda",
+        type=("build", "link", "run"),
+    )
+    depends_on(
+        "llvm@15:18 +clang",
+        when="@24.10.0 +omp_llvm",
+        type=("build", "link", "run"),
+    )
+
     # If we directly add nvhpc as build then the Adaptivecpp cmake finds the
     # openmp inside nvhpc. If we add nvhpc as link or run then nvhpc gets
     # loaded as a runtime dependency which then breaks downstream cmake
