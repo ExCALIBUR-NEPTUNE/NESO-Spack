@@ -41,7 +41,7 @@ class NesoParticles(CMakePackage):
     def cmake_args(self):
         args = []
         if not "+build_tests" in self.spec:
-            args.append("-DENABLE_NESO_PARTICLES_TESTS=off")
+            args.append("-DNESO_PARTICLES_ENABLE_TESTS=off")
         if "+nvcxx" in self.spec:
             args.append("-DNESO_PARTICLES_DEVICE_TYPE=GPU")
             args.append("-DHIPSYCL_TARGETS=cuda-nvcxx")
