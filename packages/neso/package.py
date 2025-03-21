@@ -81,22 +81,37 @@ class Neso(CMakePackage):
     variant(
         "coverage", default=False, description="Enable coverage reporting for GCC/Clang"
     )
+    variant(
+        "cwipi",
+        default=False,
+        description="Enables CWIPI support in Nektar++ and builds CWIPI-dependent examples",
+    )
     variant("nvcxx", default=False, description="Enable compilation using nvcxx")
 
     # Some SYCL packages require a specific run-time environment to be set
     depends_on("sycl", type=("build", "link"))
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     depends_on("fftw-api", type="link")
-    depends_on("nektar@5.3.0-2022-09-03:+compflow_solver", type="link")
     depends_on("cmake@3.24:", type="build")
     depends_on("boost@1.74:", type="test")
     depends_on("googletest+gmock", type="link")
     depends_on("neso-particles")
     depends_on("mpi", type=("build", "run"))
 
+    # Nektar++ dependency
+    nektar_base_spec = "nektar@5.3.0-2022-09-03:+compflow_solver"
+    depends_on(nektar_base_spec, when="~cwipi", type="link")
+    depends_on(nektar_base_spec + "+cwipi", when="+cwipi", type="link")
+
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
-    conflicts("^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers.")
-    conflicts("+nvcxx", when="%oneapi", msg="Nvidia compilation option can only be used with gcc compilers")
+    conflicts(
+        "^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers."
+    )
+    conflicts(
+        "+nvcxx",
+        when="%oneapi",
+        msg="Nvidia compilation option can only be used with gcc compilers",
+    )
     # Should only use MKL with the same release of OneAPI
     # compilers. Ideally this would have been set in the MKL package
     # itself.
@@ -141,6 +156,9 @@ class Neso(CMakePackage):
                         )
 
                     break
+
+        if "+cwipi" in self.spec:
+            args.append("-DNESO_BUILD_CWIPI_EXAMPLES=ON")
 
         if "+nvcxx" in self.spec:
             if "^hipsycl" in self.spec:
