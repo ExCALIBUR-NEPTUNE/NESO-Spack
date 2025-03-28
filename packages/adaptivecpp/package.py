@@ -60,6 +60,7 @@ class Adaptivecpp(CMakePackage):
     variant(
         "allow_unsupported_cuda",
         default=False,
+        when="+cuda",
         description="Disable checks for supported CUDA version for LLVM.",
     )
     variant(
@@ -77,6 +78,11 @@ class Adaptivecpp(CMakePackage):
         default=False,
         description="Enable OpenCL backend.",
     )
+    variant(
+        "generic",
+        default=False,
+        description="Enable generic single pass backend.",
+    )
 
     depends_on("cmake@3.5:", type="build")
     depends_on("boost +filesystem", when="@23.10.0:")
@@ -85,6 +91,7 @@ class Adaptivecpp(CMakePackage):
     # depends_on("llvm@8: +clang", when="~cuda")
     depends_on("llvm@9: +clang", when="+cuda", type=("build", "link", "run"))
     depends_on("llvm@9: +clang", when="+omp_llvm")
+    depends_on("llvm@9: +clang", when="+generic")
     depends_on("cuda", when="@23.10.0: +cuda")
     depends_on("cuda", when="+nvcxx")
 
@@ -99,6 +106,11 @@ class Adaptivecpp(CMakePackage):
     depends_on(
         "llvm@15:18 +clang",
         when="@24.10.0 +omp_llvm",
+        type=("build", "link", "run"),
+    )
+    depends_on(
+        "llvm@15:18 +clang",
+        when="@24.10.0 +generic",
         type=("build", "link", "run"),
     )
 
@@ -139,15 +151,9 @@ class Adaptivecpp(CMakePackage):
     # +cuda +omp_llvm or +nvcxx and not both within the same installation.
     conflicts(
         "+nvcxx",
-        when="+cuda",
+        when="^llvm",
         msg="Cannot use nvc++ and llvm backends simultaneously."
-        "Choose one of +nvcxx or +cuda +omp_llvm.",
-    )
-    conflicts(
-        "+nvcxx",
-        when="+omp_llvm",
-        msg="Cannot use nvc++ and llvm backends simultaneously."
-        " Choose one of +nvcxx or +cuda +omp_llvm.",
+        "Choose one of +nvcxx or +cuda +omp_llvm +generic.",
     )
 
     def cmake_args(self):
@@ -317,6 +323,11 @@ class Adaptivecpp(CMakePackage):
                 config[default_omp_link_line] += " " + " ".join(
                     "-Wl,-rpath {0}".format(p) for p in rpaths
                 )
+
+            if "+generic" in self.spec:
+                default_targets = "default-targets"
+                if default_targets in config.keys():
+                    config[default_targets] = "generic"
 
         else:
             # If llvm is not in the spec then explicitly use "omp.library-only"
