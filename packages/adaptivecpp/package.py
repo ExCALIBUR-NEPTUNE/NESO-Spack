@@ -58,6 +58,11 @@ class Adaptivecpp(CMakePackage):
         description="Enable CUDA backend for SYCL kernels using llvm+cuda",
     )
     variant(
+        "allow_unsupported_cuda",
+        default=False,
+        description="Disable checks for supported CUDA version for LLVM.",
+    )
+    variant(
         "nvcxx",
         default=False,
         description="Enable CUDA backend for SYCL kernels using nvcxx",
@@ -96,6 +101,13 @@ class Adaptivecpp(CMakePackage):
         when="@24.10.0 +omp_llvm",
         type=("build", "link", "run"),
     )
+
+    # LLVM has restrictions on which CUDA versions are supported.
+    depends_on("cuda@11:11.8", when="+cuda ~allow_unsupported_cuda ^llvm@16")
+    depends_on("cuda@11:12.1", when="+cuda ~allow_unsupported_cuda ^llvm@17")
+    depends_on("cuda@11:12.3", when="+cuda ~allow_unsupported_cuda ^llvm@18")
+    depends_on("cuda@11:12.5", when="+cuda ~allow_unsupported_cuda ^llvm@19")
+    depends_on("cuda@11:12.6", when="+cuda ~allow_unsupported_cuda ^llvm@20")
 
     # If we directly add nvhpc as build then the Adaptivecpp cmake finds the
     # openmp inside nvhpc. If we add nvhpc as link or run then nvhpc gets
@@ -225,11 +237,6 @@ class Adaptivecpp(CMakePackage):
             args += [
                 "-DWITH_SSCP_COMPILER:Bool=TRUE",
                 "-DWITH_OPENCL_BACKEND=ON",
-            ]
-        else:
-            args += [
-                "-DWITH_SSCP_COMPILER:Bool=FALSE",
-                "-DWITH_OPENCL_BACKEND=OFF",
             ]
 
         return args
