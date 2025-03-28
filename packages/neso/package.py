@@ -170,7 +170,7 @@ class Neso(CMakePackage):
             args.append("-DSYCL_DEVICE_FILTER=GPU")
 
         if "+libonly" in self.spec:
-            args.append("-DENABLE_NESO_SOLVERS=OFF")
-            args.append("-DENABLE_NESO_TESTS=OFF")
+            args.append("-DNESO_BUILD_SOLVERS=OFF")
+            args.append("-DNESO_BUILD_TESTS=OFF")
 
         return args
