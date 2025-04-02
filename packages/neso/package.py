@@ -88,6 +88,8 @@ class Neso(CMakePackage):
     )
     variant("nvcxx", default=False, description="Enable compilation using nvcxx")
 
+    variant("libonly", default=False, description="Only compiles the library elements and not the solvers or tests")
+
     # Some SYCL packages require a specific run-time environment to be set
     depends_on("sycl", type=("build", "link"))
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
@@ -166,5 +168,9 @@ class Neso(CMakePackage):
             elif "^adaptivecpp" in self.spec:
                 args.append("-DACPP_TARGETS=cuda-nvcxx")
             args.append("-DSYCL_DEVICE_FILTER=GPU")
+
+        if "+libonly" in self.spec:
+            args.append("-DNESO_BUILD_SOLVERS=OFF")
+            args.append("-DNESO_BUILD_TESTS=OFF")
 
         return args
