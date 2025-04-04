@@ -23,8 +23,9 @@ to avoid llvm build
 
 
 class Adaptivecpp(CMakePackage):
-    """AdaptiveCPP is an implementation of the SYCL standard programming model
-    over NVIDIA CUDA/AMD HIP"""
+    """AdaptiveCPP is an implementation of the SYCL standard programming model over
+    NVIDIA CUDA/AMD HIP. If no variants are passed this package will build only the
+    omp.library-only backend."""
 
     homepage = "https://github.com/AdaptiveCpp/AdaptiveCpp"
     git = "https://github.com/AdaptiveCpp/AdaptiveCpp.git"
@@ -55,7 +56,10 @@ class Adaptivecpp(CMakePackage):
     variant(
         "cuda",
         default=False,
-        description="Enable CUDA backend for SYCL kernels using llvm+cuda",
+        description="""
+Enable CUDA backend for SYCL kernels using llvm+cuda or generic backends. Use
++generic +cuda to enable the generic CUDA backend. +cuda by itself will enable
+cuda through LLVM.""",
     )
     variant(
         "allow_unsupported_cuda",
@@ -76,19 +80,19 @@ class Adaptivecpp(CMakePackage):
     variant(
         "opencl",
         default=False,
-        description="Enable OpenCL backend.",
+        description="Enable OpenCL backend (very experimental).",
     )
     variant(
         "generic",
         default=False,
-        description="Enable generic single pass backend.",
+        description="""
+Enable generic single pass backend. +generic will enable CPU runtimes. +generic
++cuda will enable CUDA and CPU runtimes.""",
     )
 
     depends_on("cmake@3.5:", type="build")
     depends_on("boost +filesystem", when="@23.10.0:")
-    depends_on(
-        "boost@1.60.0: +filesystem +fiber +context cxxstd=17", when="@23.10.0:"
-    )
+    depends_on("boost@1.60.0: +filesystem +fiber +context cxxstd=17", when="@23.10.0:")
     depends_on("python@3:")
     # depends_on("llvm@8: +clang", when="~cuda")
     depends_on("llvm@9: +clang", when="+cuda", type=("build", "link", "run"))
@@ -178,9 +182,7 @@ class Adaptivecpp(CMakePackage):
 
             # LLVM directory containing all installed CMake files
             # (e.g.: configs consumed by client projects)
-            llvm_cmake_dirs = filesystem.find(
-                spec["llvm"].prefix, "LLVMExports.cmake"
-            )
+            llvm_cmake_dirs = filesystem.find(spec["llvm"].prefix, "LLVMExports.cmake")
             if len(llvm_cmake_dirs) != 1:
                 raise InstallError(
                     "concretized llvm dependency must provide "
@@ -213,15 +215,11 @@ class Adaptivecpp(CMakePackage):
                     "valid clang++ executable, found invalid: "
                     "{0}".format(llvm_clang_bin)
                 )
-            args.append(
-                "-DCLANG_EXECUTABLE_PATH:String={0}".format(llvm_clang_bin)
-            )
+            args.append("-DCLANG_EXECUTABLE_PATH:String={0}".format(llvm_clang_bin))
 
         if ("+cuda" in spec) or ("+nvcxx" in spec):
             args += [
-                "-DCUDA_TOOLKIT_ROOT_DIR:String={0}".format(
-                    spec["cuda"].prefix
-                ),
+                "-DCUDA_TOOLKIT_ROOT_DIR:String={0}".format(spec["cuda"].prefix),
                 "-DWITH_CUDA_BACKEND:Bool=TRUE",
             ]
         else:
