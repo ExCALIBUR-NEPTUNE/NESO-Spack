@@ -52,18 +52,32 @@ class Adaptivecpp(CMakePackage):
         submodules=True,
     )
 
+    default_compilationflow = "omp-library-only"
     variant(
         "compilationflow",
-        default="omp-library-only",
+        default=default_compilationflow,
         values=(
-            "omp-library-only",
+            default_compilationflow,
             "omp-accelerated",
             "cuda-llvm",
             "cuda-nvcxx",
         ),
-        description="Specify the default compilation workflow which this install will use for all translation units. Setting this variant will automatically select other variants as needed.",
+        description="Specify the default compilation workflow which this install will use for all translation units. Setting this variant will automatically select other variants as needed. For cuda compilation flows the CUDA architecture should be set with, e.g. 'cuda_arch=80'. The cuda-llvm flow requires that cuda_arch is set.",
         multi=False,
     )
+
+    default_cuda_arch = "none"
+    cuda_arch_values = tuple(
+        [default_cuda_arch] + list(CudaPackage.cuda_arch_values)
+    )
+    variant(
+        "cuda_arch",
+        default=default_cuda_arch,
+        values=cuda_arch_values,
+        description="Specify the CUDA architecture to use. Required, i.e. not 'none', for cuda-llvm compilation flow.",
+        multi=False,
+    )
+    conflicts("cuda_arch=none", when="compilationflow=cuda-llvm")
 
     variant(
         "cuda",
@@ -173,7 +187,32 @@ class Adaptivecpp(CMakePackage):
         " Choose one of +nvcxx or +cuda +omp_llvm.",
     )
 
+    # Spack doesn't seem to populate the spec with the default multivalued
+    # variant information.
+    def get_compilation_workflow(self):
+        if "compilationflow" in self.spec.variants:
+            return self.spec.variants["compilationflow"].value
+        else:
+            return self.default_compilationflow
+
+    # Spack doesn't seem to populate the spec with the default multivalued
+    # variant information.
+    def get_cuda_arch(self):
+        if "cuda_arch" in self.spec.variants:
+            return self.spec.variants["cuda_arch"].value
+        else:
+            return self.default_cuda_arch
+
     def cmake_args(self):
+
+        # As spack doesn't seem to populate mutlivalued variants with default
+        # values and check conflicts properly we check here that the cuda arch
+        # is specified for cuda-llvm.
+        if self.get_compilation_workflow() == "cuda-llvm":
+            if self.default_cuda_arch == self.get_cuda_arch():
+                raise spack.error.SpackError(
+                    "cuda-llvm requires cuda_arch to be set"
+                )
 
         spec = self.spec
         args = [
@@ -363,18 +402,25 @@ class Adaptivecpp(CMakePackage):
                 if kx in cuda_config.keys():
                     cuda_config[kx] += " --no-restrict-keyword"
 
+        cuda_arch = ""
+        if self.get_cuda_arch() != "none":
+            if self.get_compilation_workflow() == "cuda-llvm":
+                cuda_arch = ":sm_" + self.get_cuda_arch()
+            elif self.get_compilation_workflow() == "cuda-nvcxx":
+                cuda_arch = ":cc" + self.get_cuda_arch()
+
         # Populate the default-target in the config file with the compilation
         # flow which was chosen.
         map_variant_to_target = {
             "omp-library-only": "omp.library-only",
             "omp-accelerated": "omp.accelerated",
-            "cuda-llvm": "cuda",
-            "cuda-nvcxx": "cuda-nvcxx",
+            "cuda-llvm": "cuda" + cuda_arch,
+            "cuda-nvcxx": "cuda-nvcxx" + cuda_arch,
         }
         default_targets = "default-targets"
         if default_targets in config.keys():
             config[default_targets] = map_variant_to_target[
-                self.spec.variants["compilationflow"].value
+                self.get_compilation_workflow()
             ]
 
         # Replace the installed config file
