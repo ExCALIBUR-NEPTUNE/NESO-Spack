@@ -10,7 +10,12 @@ class NesoParticles(CMakePackage):
 
     git = "https://github.com/ExCALIBUR-NEPTUNE/NESO-Particles.git"
 
-    version("0.7.0", commit="ded8da83b1825d255735568e2b054d63ea6db7f9", preferred=True)
+    version(
+        "0.8.0",
+        commit="be8806066ca168e2e899ddb02e65312d0598176c",
+        preferred=True,
+    )
+    version("0.7.0", commit="ded8da83b1825d255735568e2b054d63ea6db7f9")
     version("0.6.0", commit="516af5c961e89c6abe1122325b470565a6af1646")
     version("0.5.0", commit="ba6750d429fe15bbec9b9c507b795cd3117b79b4")
     version("0.4.0", commit="c615974661e0f4c8d9db709d65d27cc2927bbfaf")
@@ -21,8 +26,16 @@ class NesoParticles(CMakePackage):
     version("working", branch="main")
     version("main", branch="main")
 
-    variant("build_tests", default=True, description="Builds the NESO-Particles tests.")
-    variant("nvcxx", default=False, description="Builds with CUDA CMake flags.")
+    variant(
+        "build_tests",
+        default=True,
+        description="Builds the NESO-Particles tests.",
+    )
+    variant(
+        "nvcxx",
+        default=False,
+        description="Deprecated, please use '^neso.adaptivecpp compilationflow=cuda-nvcxx' instead. Builds with CUDA via AdaptiveCpp and nvc++.",
+    )
     variant(
         "petsc",
         default=False,
@@ -39,28 +52,22 @@ class NesoParticles(CMakePackage):
     depends_on("googletest@1.10.0: +gmock", type=("build", "link", "run"))
     depends_on("petsc +ptscotch", when="+petsc", type=("build", "link", "run"))
 
-    # Depend on a sycl implementation - with workarounds for intel packaging.
+    # Depend on a sycl implementation.
     depends_on("sycl", type=("build", "link", "run"))
+
+    # backwards compatibility and workarounds for intel packaging
+    depends_on("neso.adaptivecpp compilationflow=cuda-nvcxx", when="+nvcxx")
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
-    conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
-    conflicts("^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers.")
     conflicts(
-        "+nvcxx",
-        when="%oneapi",
-        msg="Nvidia compilation option can only be used with gcc compilers",
+        "^dpcpp",
+        when="%gcc",
+        msg="DPC++ can only be used with Intel oneAPI compilers.",
     )
 
     def cmake_args(self):
         args = []
         if not "+build_tests" in self.spec:
             args.append("-DENABLE_NESO_PARTICLES_TESTS=OFF")
-        if "+nvcxx" in self.spec:
-            args.append("-DNESO_PARTICLES_DEVICE_TYPE=GPU")
-            if "^hipsycl" in self.spec:
-                args.append("-DHIPSYCL_TARGETS=cuda-nvcxx")
-            elif "^adaptivecpp" in self.spec:
-                args.append("-DACPP_TARGETS=cuda-nvcxx")
-
         if "+petsc" in self.spec:
             args.append("-DNESO_PARTICLES_ENABLE_PETSC=ON")
 
