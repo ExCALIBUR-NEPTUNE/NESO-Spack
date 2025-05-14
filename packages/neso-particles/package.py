@@ -67,7 +67,8 @@ class NesoParticles(CMakePackage):
     def cmake_args(self):
         args = []
         if not "+build_tests" in self.spec:
-            args.append("-DENABLE_NESO_PARTICLES_TESTS=OFF")
+            args.append("-DNESO_PARTICLES_ENABLE_TESTS=OFF")
+
         if "+petsc" in self.spec:
             args.append("-DNESO_PARTICLES_ENABLE_PETSC=ON")
 

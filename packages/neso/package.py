@@ -95,12 +95,24 @@ class Neso(CMakePackage):
         default=False,
         description="Deprecated, please use '^neso.adaptivecpp compilationflow=cuda-nvcxx' instead. Enable compilation using nvcxx",
     )
+    variant(
+        "cwipi",
+        default=False,
+        description="Enables CWIPI support in Nektar++ and builds CWIPI-dependent examples",
+    )
+    variant(
+        "nvcxx", default=False, description="Enable compilation using nvcxx"
+    )
+    variant(
+        "libonly",
+        default=False,
+        description="Only compiles the library elements and not the solvers or tests",
+    )
 
     # Some SYCL packages require a specific run-time environment to be set
     depends_on("sycl", type=("build", "link"))
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     depends_on("fftw-api", type="link")
-    depends_on("nektar@5.3.0-2022-09-03:+compflow_solver", type="link")
     depends_on("cmake@3.24:", type="build")
     depends_on("boost@1.74:", type="test")
     depends_on("googletest+gmock", type="link")
@@ -109,6 +121,12 @@ class Neso(CMakePackage):
 
     # backwards compatibility and workarounds for intel packaging
     depends_on("neso.adaptivecpp compilationflow=cuda-nvcxx", when="+nvcxx")
+
+    # Nektar++ dependency
+    nektar_base_spec = "nektar@5.3.0-2022-09-03:+compflow_solver"
+    depends_on(nektar_base_spec, when="~cwipi", type="link")
+    depends_on(nektar_base_spec + "+cwipi", when="+cwipi", type="link")
+
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     conflicts(
         "^dpcpp",
@@ -154,5 +172,12 @@ class Neso(CMakePackage):
                     UserWarning,
                     stacklevel=1,
                 )
+
+        if "+cwipi" in self.spec:
+            args.append("-DNESO_BUILD_CWIPI_EXAMPLES=ON")
+
+        if "+libonly" in self.spec:
+            args.append("-DNESO_BUILD_SOLVERS=OFF")
+            args.append("-DNESO_BUILD_TESTS=OFF")
 
         return args
