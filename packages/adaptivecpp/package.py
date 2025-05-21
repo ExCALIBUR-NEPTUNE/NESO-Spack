@@ -405,7 +405,7 @@ class Adaptivecpp(CMakePackage):
                     cuda_config[kx] += " --no-restrict-keyword"
 
         cuda_arch = ""
-        if self.get_cuda_arch() != "none":
+        if self.cuda_arch != "none":
             if self.compilation_workflow == "cuda-llvm":
                 cuda_arch = ":sm_" + self.get_cuda_arch()
             elif self.compilation_workflow == "cuda-nvcxx":
