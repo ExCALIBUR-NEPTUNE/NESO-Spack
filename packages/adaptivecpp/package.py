@@ -420,7 +420,7 @@ class Adaptivecpp(CMakePackage):
             "cuda-nvcxx": "cuda-nvcxx" + cuda_arch,
         }
         default_targets = "default-targets"
-        if default_targets in config.keys():
+        if default_targets in config:
             config[default_targets] = map_variant_to_target[
                 self.get_compilation_workflow()
             ]
