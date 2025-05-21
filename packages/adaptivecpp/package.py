@@ -408,7 +408,7 @@ class Adaptivecpp(CMakePackage):
         if self.get_cuda_arch() != "none":
             if self.compilation_workflow == "cuda-llvm":
                 cuda_arch = ":sm_" + self.get_cuda_arch()
-            elif self.get_compilation_workflow() == "cuda-nvcxx":
+            elif self.compilation_workflow == "cuda-nvcxx":
                 cuda_arch = ":cc" + self.get_cuda_arch()
 
         # Populate the default-target in the config file with the compilation
