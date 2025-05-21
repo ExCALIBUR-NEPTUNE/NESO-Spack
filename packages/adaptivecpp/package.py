@@ -422,7 +422,7 @@ class Adaptivecpp(CMakePackage):
         default_targets = "default-targets"
         if default_targets in config:
             config[default_targets] = map_variant_to_target[
-                self.get_compilation_workflow()
+                self.compilation_workflow
             ]
 
         # Replace the installed config file
