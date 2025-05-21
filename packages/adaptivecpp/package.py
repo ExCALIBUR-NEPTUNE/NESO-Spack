@@ -210,7 +210,7 @@ class Adaptivecpp(CMakePackage):
         # As spack doesn't seem to populate mutlivalued variants with default
         # values and check conflicts properly we check here that the cuda arch
         # is specified for cuda-llvm.
-        if self.get_compilation_workflow() == "cuda-llvm":
+        if self.compilation_workflow == "cuda-llvm":
             if self.default_cuda_arch == self.get_cuda_arch():
                 raise spack.error.SpackError(
                     "cuda-llvm requires cuda_arch to be set"
