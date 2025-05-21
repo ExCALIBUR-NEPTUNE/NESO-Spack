@@ -211,7 +211,7 @@ class Adaptivecpp(CMakePackage):
         # values and check conflicts properly we check here that the cuda arch
         # is specified for cuda-llvm.
         if self.compilation_workflow == "cuda-llvm":
-            if self.default_cuda_arch == self.get_cuda_arch():
+            if self.default_cuda_arch == self.cuda_arch:
                 raise spack.error.SpackError(
                     "cuda-llvm requires cuda_arch to be set"
                 )
