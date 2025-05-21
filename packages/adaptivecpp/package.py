@@ -409,7 +409,7 @@ class Adaptivecpp(CMakePackage):
             if self.compilation_workflow == "cuda-llvm":
                 cuda_arch = ":sm_" + self.cuda_arch
             elif self.compilation_workflow == "cuda-nvcxx":
-                cuda_arch = ":cc" + self.get_cuda_arch()
+                cuda_arch = ":cc" + self.cuda_arch
 
         # Populate the default-target in the config file with the compilation
         # flow which was chosen.
