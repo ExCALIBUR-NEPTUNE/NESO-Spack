@@ -406,7 +406,7 @@ class Adaptivecpp(CMakePackage):
 
         cuda_arch = ""
         if self.get_cuda_arch() != "none":
-            if self.get_compilation_workflow() == "cuda-llvm":
+            if self.compilation_workflow == "cuda-llvm":
                 cuda_arch = ":sm_" + self.get_cuda_arch()
             elif self.get_compilation_workflow() == "cuda-nvcxx":
                 cuda_arch = ":cc" + self.get_cuda_arch()
