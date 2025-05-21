@@ -198,7 +198,8 @@ class Adaptivecpp(CMakePackage):
 
     # Spack doesn't seem to populate the spec with the default multivalued
     # variant information.
-    def get_cuda_arch(self):
+    @property
+    def cuda_arch(self):
         if "cuda_arch" in self.spec.variants:
             return self.spec.variants["cuda_arch"].value
         else:
