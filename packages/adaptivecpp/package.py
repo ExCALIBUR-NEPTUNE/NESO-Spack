@@ -189,7 +189,8 @@ class Adaptivecpp(CMakePackage):
 
     # Spack doesn't seem to populate the spec with the default multivalued
     # variant information.
-    def get_compilation_workflow(self):
+    @property
+    def compilation_workflow(self):
         if "compilationflow" in self.spec.variants:
             return self.spec.variants["compilationflow"].value
         else:
