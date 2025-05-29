@@ -73,22 +73,41 @@ class Neso(CMakePackage):
     variant(
         "sanitizer",
         description="The sanitizers to compile with",
-        values=("none", "address", "leak", "thread", "memory", "undefined_behaviour"),
+        values=(
+            "none",
+            "address",
+            "leak",
+            "thread",
+            "memory",
+            "undefined_behaviour",
+        ),
         default="none",
         multi=True,
         validator=_validate_sanitizer_variant,
     )
     variant(
-        "coverage", default=False, description="Enable coverage reporting for GCC/Clang"
+        "coverage",
+        default=False,
+        description="Enable coverage reporting for GCC/Clang",
+    )
+    variant(
+        "nvcxx",
+        default=False,
+        description="Deprecated, please use '^neso.adaptivecpp compilationflow=cudanvcxx' instead. Enable compilation using nvcxx",
     )
     variant(
         "cwipi",
         default=False,
         description="Enables CWIPI support in Nektar++ and builds CWIPI-dependent examples",
     )
-    variant("nvcxx", default=False, description="Enable compilation using nvcxx")
-
-    variant("libonly", default=False, description="Only compiles the library elements and not the solvers or tests")
+    variant(
+        "nvcxx", default=False, description="Enable compilation using nvcxx"
+    )
+    variant(
+        "libonly",
+        default=False,
+        description="Only compiles the library elements and not the solvers or tests",
+    )
 
     # Some SYCL packages require a specific run-time environment to be set
     depends_on("sycl", type=("build", "link"))
@@ -100,6 +119,9 @@ class Neso(CMakePackage):
     depends_on("neso-particles")
     depends_on("mpi", type=("build", "run"))
 
+    # backwards compatibility and workarounds for intel packaging
+    depends_on("neso.adaptivecpp compilationflow=cudanvcxx", when="+nvcxx")
+
     # Nektar++ dependency
     nektar_base_spec = "nektar@5.3.0-2022-09-03:+compflow_solver"
     depends_on(nektar_base_spec, when="~cwipi", type="link")
@@ -107,7 +129,9 @@ class Neso(CMakePackage):
 
     conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     conflicts(
-        "^dpcpp", when="%gcc", msg="DPC++ can only be used with Intel oneAPI compilers."
+        "^dpcpp",
+        when="%gcc",
+        msg="DPC++ can only be used with Intel oneAPI compilers.",
     )
     conflicts(
         "+nvcxx",
@@ -119,7 +143,8 @@ class Neso(CMakePackage):
     # itself.
     for idx, v in enumerate(AVAILABLE_ONEAPI_VERSIONS):
         conflicts(
-            "^intel-oneapi-mkl@" + _restrict_to_version(AVAILABLE_ONEAPI_VERSIONS, idx),
+            "^intel-oneapi-mkl@"
+            + _restrict_to_version(AVAILABLE_ONEAPI_VERSIONS, idx),
             when="%oneapi@" + v,
             msg="OneAPI compilers and MKL must be from the same release.",
         )
@@ -143,31 +168,13 @@ class Neso(CMakePackage):
         if "intel" in self.spec["mpi"].name:
             if "I_MPI_FABRICS" not in environ:
                 warn(
-                    "The intel mpi specific environment variable, I_MPI_FABRICS, has not been set and an intel-MPI build will fail. If you are developing on an unmanaged-HPC machine, i.e. locally on your workstation, a sensible default `export I_MPI_FABRICS=shm`. Information can be found on the intel documentation pages https://tinyurl.com/33w8x8wp.",
+                    "The intel mpi specific environment variable, I_MPI_FABRICS, has not been set. This environment variable should be set on certain platforms, e.g. Docker, where `export I_MPI_FABRICS=shm` may prevent issues. Information can be found on the intel documentation pages https://tinyurl.com/33w8x8wp.",
                     UserWarning,
                     stacklevel=1,
                 )
-        for depspec in self.spec.dependencies():
-            for dep in depspec.dependents():
-                if "sycl" in dep:
-                    if "SYCL_DEVICE_FILTER" not in environ:
-                        warn(
-                            "The environment variable SYCL_DEVICE_FILTER is not set and the code may not run as intended in this environment. A sensible default for running on the cpu is `export SYCL_DEVICE_FILTER=host`. For more information please see e.g. https://tinyurl.com/y37672as.",
-                            UserWarning,
-                            stacklevel=1,
-                        )
-
-                    break
 
         if "+cwipi" in self.spec:
             args.append("-DNESO_BUILD_CWIPI_EXAMPLES=ON")
-
-        if "+nvcxx" in self.spec:
-            if "^hipsycl" in self.spec:
-                args.append("-DHIPSYCL_TARGETS=cuda-nvcxx")
-            elif "^adaptivecpp" in self.spec:
-                args.append("-DACPP_TARGETS=cuda-nvcxx")
-            args.append("-DSYCL_DEVICE_FILTER=GPU")
 
         if "+libonly" in self.spec:
             args.append("-DNESO_BUILD_SOLVERS=OFF")
