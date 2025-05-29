@@ -109,6 +109,12 @@ class Adaptivecpp(CMakePackage):
         description="Enable accelerated OMP backend for SYCL kernels using LLVM",
     )
     variant(
+        "omp_llvm",
+        default=True,
+        when="compilationflow=omp_accelerated",
+        description="Enable accelerated OMP backend for SYCL kernels using LLVM",
+    )
+    variant(
         "opencl",
         default=False,
         description="Enable OpenCL backend.",
