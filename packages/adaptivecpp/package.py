@@ -416,7 +416,7 @@ class Adaptivecpp(CMakePackage):
             "omplibraryonly": "omp.library-only",
             "ompaccelerated": "omp.accelerated",
             "cudallvm": "cuda" + cuda_arch,
-            "cudanvcxx": "cudanvcxx" + cuda_arch,
+            "cudanvcxx": "cuda-nvcxx" + cuda_arch,
         }
         default_targets = "default-targets"
         if default_targets in config:
