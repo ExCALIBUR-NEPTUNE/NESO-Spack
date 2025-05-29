@@ -34,7 +34,7 @@ class NesoParticles(CMakePackage):
     variant(
         "nvcxx",
         default=False,
-        description="Deprecated, please use '^neso.adaptivecpp compilationflow=cuda-nvcxx' instead. Builds with CUDA via AdaptiveCpp and nvc++.",
+        description="Deprecated, please use '^neso.adaptivecpp compilationflow=cuda_nvcxx' instead. Builds with CUDA via AdaptiveCpp and nvc++.",
     )
     variant(
         "petsc",
@@ -56,7 +56,7 @@ class NesoParticles(CMakePackage):
     depends_on("sycl", type=("build", "link", "run"))
 
     # backwards compatibility and workarounds for intel packaging
-    depends_on("neso.adaptivecpp compilationflow=cuda-nvcxx", when="+nvcxx")
+    depends_on("neso.adaptivecpp compilationflow=cuda_nvcxx", when="+nvcxx")
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     conflicts(
         "^dpcpp",

@@ -93,7 +93,7 @@ class Neso(CMakePackage):
     variant(
         "nvcxx",
         default=False,
-        description="Deprecated, please use '^neso.adaptivecpp compilationflow=cuda-nvcxx' instead. Enable compilation using nvcxx",
+        description="Deprecated, please use '^neso.adaptivecpp compilationflow=cuda_nvcxx' instead. Enable compilation using nvcxx",
     )
     variant(
         "cwipi",
@@ -120,7 +120,7 @@ class Neso(CMakePackage):
     depends_on("mpi", type=("build", "run"))
 
     # backwards compatibility and workarounds for intel packaging
-    depends_on("neso.adaptivecpp compilationflow=cuda-nvcxx", when="+nvcxx")
+    depends_on("neso.adaptivecpp compilationflow=cuda_nvcxx", when="+nvcxx")
 
     # Nektar++ dependency
     nektar_base_spec = "nektar@5.3.0-2022-09-03:+compflow_solver"

@@ -52,17 +52,17 @@ class Adaptivecpp(CMakePackage):
         submodules=True,
     )
 
-    default_compilationflow = "omp-library-only"
+    default_compilationflow = "omp_library_only"
     variant(
         "compilationflow",
         default=default_compilationflow,
         values=(
             default_compilationflow,
-            "omp-accelerated",
-            "cuda-llvm",
-            "cuda-nvcxx",
+            "omp_accelerated",
+            "cuda_llvm",
+            "cuda_nvcxx",
         ),
-        description="Specify the default compilation workflow which this install will use for all translation units. Setting this variant will automatically select other variants as needed. For cuda compilation flows the CUDA architecture should be set with, e.g. 'cuda_arch=80'. The cuda-llvm flow requires that cuda_arch is set.",
+        description="Specify the default compilation workflow which this install will use for all translation units. Setting this variant will automatically select other variants as needed. For cuda compilation flows the CUDA architecture should be set with, e.g. 'cuda_arch=80'. The cuda_llvm flow requires that cuda_arch is set.",
         multi=False,
     )
 
@@ -74,10 +74,10 @@ class Adaptivecpp(CMakePackage):
         "cuda_arch",
         default=default_cuda_arch,
         values=cuda_arch_values,
-        description="Specify the CUDA architecture to use. Required, i.e. not 'none', for cuda-llvm compilation flow.",
+        description="Specify the CUDA architecture to use. Required, i.e. not 'none', for cuda_llvm compilation flow.",
         multi=False,
     )
-    conflicts("cuda_arch=none", when="compilationflow=cuda-llvm")
+    conflicts("cuda_arch=none", when="compilationflow=cuda_llvm")
 
     variant(
         "cuda",
@@ -87,10 +87,10 @@ class Adaptivecpp(CMakePackage):
     variant(
         "cuda",
         default=True,
-        when="compilationflow=cuda-llvm",
+        when="compilationflow=cuda_llvm",
         description="Enable CUDA backend for SYCL kernels using llvm+cuda",
     )
-    conflicts("~cuda", when="compilationflow=cuda-llvm")
+    conflicts("~cuda", when="compilationflow=cuda_llvm")
     variant(
         "nvcxx",
         default=False,
@@ -99,22 +99,15 @@ class Adaptivecpp(CMakePackage):
     variant(
         "nvcxx",
         default=True,
-        when="compilationflow=cuda-nvcxx",
+        when="compilationflow=cuda_nvcxx",
         description="Enable CUDA backend for SYCL kernels using nvcxx",
     )
-    conflicts("~nvcxx", when="compilationflow=cuda-nvcxx")
+    conflicts("~nvcxx", when="compilationflow=cuda_nvcxx")
     variant(
         "omp_llvm",
         default=False,
         description="Enable accelerated OMP backend for SYCL kernels using LLVM",
     )
-    variant(
-        "omp_llvm",
-        default=True,
-        when="compilationflow=omp-accelerated",
-        description="Enable accelerated OMP backend for SYCL kernels using LLVM",
-    )
-    conflicts("~omp_llvm", when="compilationflow=omp-accelerated")
     variant(
         "opencl",
         default=False,
@@ -209,11 +202,11 @@ class Adaptivecpp(CMakePackage):
 
         # As spack doesn't seem to populate mutlivalued variants with default
         # values and check conflicts properly we check here that the cuda arch
-        # is specified for cuda-llvm.
-        if self.compilation_workflow == "cuda-llvm":
+        # is specified for cuda_llvm.
+        if self.compilation_workflow == "cuda_llvm":
             if self.default_cuda_arch == self.cuda_arch:
                 raise spack.error.SpackError(
-                    "cuda-llvm requires cuda_arch to be set"
+                    "cuda_llvm requires cuda_arch to be set"
                 )
 
         spec = self.spec
@@ -406,18 +399,18 @@ class Adaptivecpp(CMakePackage):
 
         cuda_arch = ""
         if self.cuda_arch != "none":
-            if self.compilation_workflow == "cuda-llvm":
+            if self.compilation_workflow == "cuda_llvm":
                 cuda_arch = ":sm_" + self.cuda_arch
-            elif self.compilation_workflow == "cuda-nvcxx":
+            elif self.compilation_workflow == "cuda_nvcxx":
                 cuda_arch = ":cc" + self.cuda_arch
 
         # Populate the default-target in the config file with the compilation
         # flow which was chosen.
         map_variant_to_target = {
-            "omp-library-only": "omp.library-only",
-            "omp-accelerated": "omp.accelerated",
-            "cuda-llvm": "cuda" + cuda_arch,
-            "cuda-nvcxx": "cuda-nvcxx" + cuda_arch,
+            "omp_library_only": "omp.library-only",
+            "omp_accelerated": "omp.accelerated",
+            "cuda_llvm": "cuda" + cuda_arch,
+            "cuda_nvcxx": "cuda_nvcxx" + cuda_arch,
         }
         default_targets = "default-targets"
         if default_targets in config:
