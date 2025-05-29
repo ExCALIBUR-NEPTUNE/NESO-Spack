@@ -130,12 +130,12 @@ class Adaptivecpp(CMakePackage):
     # runs on.
     depends_on(
         "llvm@15:18 +clang",
-        when="@24.10.0 +cuda",
+        when="@:24 +cuda",
         type=("build", "link", "run"),
     )
     depends_on(
         "llvm@15:18 +clang",
-        when="@24.10.0 +omp_llvm",
+        when="@:24 +omp_llvm",
         type=("build", "link", "run"),
     )
 
