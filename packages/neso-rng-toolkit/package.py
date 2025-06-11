@@ -1,6 +1,4 @@
 from spack import *
-import os
-import shutil
 
 
 class NesoRngToolkit(CMakePackage):
