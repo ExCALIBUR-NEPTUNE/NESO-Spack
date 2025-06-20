@@ -33,8 +33,10 @@ class Adaptivecpp(CMakePackage):
 
     version(
         "24.10.0",
-        commit="7677cf6eefd8ab46d66168cd07ab042109448124",
-        submodules=True,
+#        commit="7677cf6eefd8ab46d66168cd07ab042109448124",
+#        submodules=True,
+        sha256="3bcd94eee41adea3ccc58390498ec9fd30e1548af5330a319be8ce3e034a6a0b",
+        url="https://github.com/AdaptiveCpp/AdaptiveCpp/archive/refs/tags/v24.10.0.tar.gz"
     )
     version(
         "24.06.0",
