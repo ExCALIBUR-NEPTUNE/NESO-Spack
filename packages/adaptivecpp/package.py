@@ -91,16 +91,8 @@ class Adaptivecpp(CMakePackage):
         description="Enable CUDA backend for SYCL kernels using llvm+cuda",
     )
     variant(
-        "cuda",
-        default=True,
-        when="compilationflow=cudallvm",
-        description="Enable CUDA backend for SYCL kernels using llvm+cuda",
-    )
-    conflicts("~cuda", when="compilationflow=cudallvm")
-    variant(
         "allow_unsupported_cuda",
         default=False,
-        when="+cuda",
         description="Disable checks for supported CUDA version for LLVM.",
     )
     variant(
@@ -109,27 +101,8 @@ class Adaptivecpp(CMakePackage):
         description="Enable CUDA backend for SYCL kernels using nvcxx",
     )
     variant(
-        "nvcxx",
-        default=True,
-        when="compilationflow=cudanvcxx",
-        description="Enable CUDA backend for SYCL kernels using nvcxx",
-    )
-    conflicts("~nvcxx", when="compilationflow=cudanvcxx")
-    variant(
         "omp_llvm",
         default=False,
-        description="Enable accelerated OMP backend for SYCL kernels using LLVM",
-    )
-    variant(
-        "omp_llvm",
-        default=True,
-        when="compilationflow=ompaccelerated",
-        description="Enable accelerated OMP backend for SYCL kernels using LLVM",
-    )
-    variant(
-        "omp_llvm",
-        default=True,
-        when="compilationflow=generic",
         description="Enable accelerated OMP backend for SYCL kernels using LLVM",
     )
     variant(
@@ -144,10 +117,18 @@ class Adaptivecpp(CMakePackage):
         "boost@1.60.0: +filesystem +fiber +context cxxstd=17", when="@23.10.0:"
     )
     depends_on("python@3:")
-    depends_on("llvm@9: +clang", when="+cuda", type=("build", "link", "run"))
+    depends_on("llvm@9: +clang", when="+cuda")
     depends_on("llvm@9: +clang", when="+omp_llvm")
-    depends_on("cuda", when="@23.10.0: +cuda")
+    depends_on("llvm@9: +clang", when="compilationflow=generic")
+    depends_on("llvm@9: +clang", when="compilationflow=ompaccelerated")
+    depends_on("llvm@9: +clang", when="compilationflow=cudallvm")
+    depends_on("cuda", when="@23.10.0: +cuda +allow_unsupported_cuda")
+    depends_on(
+        "cuda",
+        when="@23.10.0: compilationflow=cudallvm +allow_unsupported_cuda",
+    )
     depends_on("cuda", when="+nvcxx")
+    depends_on("cuda", when="compilationflow=cudanvcxx")
 
     # Version 24.10.0 llvm backends do not work with LLVM 19 so we restrict
     # llvm to versions 15 to 18 as those are the versions the AdaptiveCpp CI
@@ -155,20 +136,73 @@ class Adaptivecpp(CMakePackage):
     depends_on(
         "llvm@15:18 +clang",
         when="@:24 +cuda",
-        type=("build", "link", "run"),
     )
     depends_on(
         "llvm@15:18 +clang",
         when="@:24 +omp_llvm",
-        type=("build", "link", "run"),
+    )
+    depends_on(
+        "llvm@15:18 +clang",
+        when="@:24 compilationflow=generic",
+    )
+    depends_on(
+        "llvm@15:18 +clang",
+        when="@:24 compilationflow=ompaccelerated",
+    )
+    depends_on(
+        "llvm@15:18 +clang",
+        when="@:24 compilationflow=cudallvm",
+    )
+
+    # Version 25.02.0 llvm backends should work with llvm 20 based on the acpp
+    # github workflows.
+    depends_on(
+        "llvm@15:20 +clang",
+        when="@:25 +cuda",
+    )
+    depends_on(
+        "llvm@15:20 +clang",
+        when="@:25 +omp_llvm",
+    )
+    depends_on(
+        "llvm@15:20 +clang",
+        when="@:25 compilationflow=generic",
+    )
+    depends_on(
+        "llvm@15:20 +clang",
+        when="@:25 compilationflow=ompaccelerated",
+    )
+    depends_on(
+        "llvm@15:20 +clang",
+        when="@:25 compilationflow=cudallvm",
     )
 
     # LLVM has restrictions on which CUDA versions are supported.
-    depends_on("cuda@11:11.8", when="+cuda ~allow_unsupported_cuda ^llvm@16")
-    depends_on("cuda@11:12.1", when="+cuda ~allow_unsupported_cuda ^llvm@17")
-    depends_on("cuda@11:12.3", when="+cuda ~allow_unsupported_cuda ^llvm@18")
-    depends_on("cuda@11:12.5", when="+cuda ~allow_unsupported_cuda ^llvm@19")
-    depends_on("cuda@11:12.6", when="+cuda ~allow_unsupported_cuda ^llvm@20")
+    depends_on("cuda@11:11.8", when="+cuda -allow_unsupported_cuda ^llvm@16")
+    depends_on("cuda@11:12.1", when="+cuda -allow_unsupported_cuda ^llvm@17")
+    depends_on("cuda@11:12.3", when="+cuda -allow_unsupported_cuda ^llvm@18")
+    depends_on("cuda@11:12.5", when="+cuda -allow_unsupported_cuda ^llvm@19")
+    depends_on("cuda@11:12.6", when="+cuda -allow_unsupported_cuda ^llvm@20")
+    depends_on(
+        "cuda@11:11.8",
+        when="compilationflow=cudallvm -allow_unsupported_cuda ^llvm@16",
+    )
+    depends_on(
+        "cuda@11:12.1",
+        when="compilationflow=cudallvm -allow_unsupported_cuda ^llvm@17",
+    )
+    depends_on(
+        "cuda@11:12.3",
+        when="compilationflow=cudallvm -allow_unsupported_cuda ^llvm@18",
+    )
+    depends_on(
+        "cuda@11:12.5",
+        when="compilationflow=cudallvm -allow_unsupported_cuda ^llvm@19",
+    )
+    depends_on(
+        "cuda@11:12.6",
+        when="compilationflow=cudallvm -allow_unsupported_cuda ^llvm@20",
+    )
 
     # If we directly add nvhpc as build then the Adaptivecpp cmake finds the
     # openmp inside nvhpc. If we add nvhpc as link or run then nvhpc gets
@@ -176,6 +210,9 @@ class Adaptivecpp(CMakePackage):
     # configuration. Downstream cmake finds nvc++ as the compiler which then
     # breaks the downstream projects.
     depends_on("nvhpc_transitive@22.9:", when="+nvcxx", type="run")
+    depends_on(
+        "nvhpc_transitive@22.9:", when="compilationflow=cudanvcxx", type="run"
+    )
     depends_on("opencl@3.0", when="+opencl")
 
     patch("allow-disable-find-cuda-23.10.0.patch", when="@23.10.0")
@@ -198,18 +235,25 @@ class Adaptivecpp(CMakePackage):
     # If we build against llvm then nvc++ ends up trying to use the linker
     # packaged with llvm and this ends up as a mess. Users should either do
     # +cuda +omp_llvm or +nvcxx and not both within the same installation.
-    conflicts(
-        "+nvcxx",
-        when="+cuda",
-        msg="Cannot use nvc++ and llvm backends simultaneously."
-        "Choose one of +nvcxx or +cuda +omp_llvm.",
-    )
-    conflicts(
-        "+nvcxx",
-        when="+omp_llvm",
-        msg="Cannot use nvc++ and llvm backends simultaneously."
-        " Choose one of +nvcxx or +cuda +omp_llvm.",
-    )
+    for specx in ("+nvcxx", "compilationflow=cudanvcxx"):
+        conflicts(
+            specx,
+            when="+cuda",
+            msg="Cannot use nvc++ and llvm backends simultaneously."
+            "Choose one of +nvcxx or +cuda +omp_llvm/compilationflow=cudallvm",
+        )
+        conflicts(
+            specx,
+            when="compilationflow=cudallvm",
+            msg="Cannot use nvc++ and llvm backends simultaneously."
+            "Choose one of +nvcxx or +cuda +omp_llvm/compilationflow=cudallvm",
+        )
+        conflicts(
+            specx,
+            when="+omp_llvm",
+            msg="Cannot use nvc++ and llvm backends simultaneously."
+            "Choose one of +nvcxx or +cuda +omp_llvm/compilationflow=cudallvm",
+        )
 
     # Spack doesn't seem to populate the spec with the default multivalued
     # variant information.
@@ -248,6 +292,13 @@ class Adaptivecpp(CMakePackage):
             "-DWITH_ROCM_BACKEND:Bool=FALSE",
             "-DWITH_STDPAR_COMPILER:Bool=FALSE",
         ]
+
+        cudallvm_in_spec = ("+cuda" in spec) or (
+            self.compilation_workflow == "cudallvm"
+        )
+        cudanvcxx_in_spec = ("+nvcxx" in spec) or (
+            self.compilation_workflow == "cudanvcxx"
+        )
 
         if "llvm" in spec:
             # prevent AdaptiveCPP's cmake to look for other LLVM installations
@@ -297,7 +348,7 @@ class Adaptivecpp(CMakePackage):
                 "-DCLANG_EXECUTABLE_PATH:String={0}".format(llvm_clang_bin)
             )
 
-        if ("+cuda" in spec) or ("+nvcxx" in spec):
+        if cudallvm_in_spec or cudanvcxx_in_spec:
             args += [
                 "-DCUDA_TOOLKIT_ROOT_DIR:String={0}".format(
                     spec["cuda"].prefix
@@ -310,7 +361,7 @@ class Adaptivecpp(CMakePackage):
                 "-DDISABLE_FIND_PACKAGE_CUDA=TRUE",
             ]
 
-        if "+nvcxx" in spec:
+        if cudanvcxx_in_spec in spec:
             nvcpp_cands = glob(
                 path.join(spec["nvhpc"].prefix, "**/nvc++"), recursive=True
             )
@@ -323,6 +374,8 @@ class Adaptivecpp(CMakePackage):
 
         if not ("llvm" in spec):
             args += [
+                "-DWITH_SSCP_COMPILER:Bool=FALSE",
+                "-DWITH_OPENCL_BACKEND=OFF",
                 "-DWITH_ACCELERATED_CPU=OFF",
                 "-DBUILD_CLANG_PLUGIN=OFF",
             ]
@@ -337,6 +390,10 @@ class Adaptivecpp(CMakePackage):
 
     @run_after("install")
     def filter_config_file(self):
+
+        cudanvcxx_in_spec = ("+nvcxx" in spec) or (
+            self.compilation_workflow == "cudanvcxx"
+        )
 
         # The config file name and location depends on version:
         # pre-24.02.0: syclcc.json
@@ -412,7 +469,7 @@ class Adaptivecpp(CMakePackage):
                     "-Wl,-rpath {0}".format(p) for p in rpaths
                 )
 
-        if ("+nvcxx" in self.spec) and (cuda_config is not None):
+        if cudanvcxx_in_spec and (cuda_config is not None):
             # By default nvc++ considers "restrict" to be a keyword. Nektar++
             # has methods/functions called restrict and these cause the nvc++
             # compiler to error. Here we add "--no-restrict-keyword" to the
