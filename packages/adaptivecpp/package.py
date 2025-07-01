@@ -61,8 +61,9 @@ class Adaptivecpp(CMakePackage):
             "ompaccelerated",
             "cudallvm",
             "cudanvcxx",
+            "generic",
         ),
-        description="Specify the default compilation workflow which this install will use for all translation units. Setting this variant will automatically select other variants as needed. For cuda compilation flows the CUDA architecture should be set with, e.g. 'cuda_arch=80'. The cudallvm flow requires that cuda_arch is set.",
+        description="Specify the default compilation workflow which this install will use for all translation units. Setting this variant will automatically select other variants as needed. For cuda compilation flows the CUDA architecture should be set with, e.g. 'cuda_arch=80'. The cudallvm flow requires that cuda_arch is set. The generic workflow can be host only or provide cuda support when +cuda is specified.",
         multi=False,
     )
 
@@ -92,6 +93,12 @@ class Adaptivecpp(CMakePackage):
     )
     conflicts("~cuda", when="compilationflow=cudallvm")
     variant(
+        "allow_unsupported_cuda",
+        default=False,
+        when="+cuda",
+        description="Disable checks for supported CUDA version for LLVM.",
+    )
+    variant(
         "nvcxx",
         default=False,
         description="Enable CUDA backend for SYCL kernels using nvcxx",
@@ -112,6 +119,12 @@ class Adaptivecpp(CMakePackage):
         "omp_llvm",
         default=True,
         when="compilationflow=ompaccelerated",
+        description="Enable accelerated OMP backend for SYCL kernels using LLVM",
+    )
+    variant(
+        "omp_llvm",
+        default=True,
+        when="compilationflow=generic",
         description="Enable accelerated OMP backend for SYCL kernels using LLVM",
     )
     variant(
@@ -144,6 +157,13 @@ class Adaptivecpp(CMakePackage):
         when="@:24 +omp_llvm",
         type=("build", "link", "run"),
     )
+
+    # LLVM has restrictions on which CUDA versions are supported.
+    depends_on("cuda@11:11.8", when="+cuda ~allow_unsupported_cuda ^llvm@16")
+    depends_on("cuda@11:12.1", when="+cuda ~allow_unsupported_cuda ^llvm@17")
+    depends_on("cuda@11:12.3", when="+cuda ~allow_unsupported_cuda ^llvm@18")
+    depends_on("cuda@11:12.5", when="+cuda ~allow_unsupported_cuda ^llvm@19")
+    depends_on("cuda@11:12.6", when="+cuda ~allow_unsupported_cuda ^llvm@20")
 
     # If we directly add nvhpc as build then the Adaptivecpp cmake finds the
     # openmp inside nvhpc. If we add nvhpc as link or run then nvhpc gets
@@ -307,11 +327,6 @@ class Adaptivecpp(CMakePackage):
                 "-DWITH_SSCP_COMPILER:Bool=TRUE",
                 "-DWITH_OPENCL_BACKEND=ON",
             ]
-        else:
-            args += [
-                "-DWITH_SSCP_COMPILER:Bool=FALSE",
-                "-DWITH_OPENCL_BACKEND=OFF",
-            ]
 
         return args
 
@@ -417,6 +432,7 @@ class Adaptivecpp(CMakePackage):
             "ompaccelerated": "omp.accelerated",
             "cudallvm": "cuda" + cuda_arch,
             "cudanvcxx": "cuda-nvcxx" + cuda_arch,
+            "generic": "generic",
         }
         default_targets = "default-targets"
         if default_targets in config:
