@@ -31,7 +31,6 @@ class Adaptivecpp(CMakePackage):
 
     provides("sycl")
 
-
     version(
         "25.02.0",
         commit="883b0e11b11fc59f37fa69e40c18446fcad03c50",
