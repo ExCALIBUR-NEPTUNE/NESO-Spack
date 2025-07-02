@@ -12,13 +12,25 @@ from llnl.util import filesystem
 from spack import *
 
 """
-Install nvc++ version with something like
+Installing with a specified compilationflow variant will create a AdaptiveCpp
+installation that compiles with that compilation flow by default.
 
-    spack install neso.adaptivecpp +nvcxx
+The default, no llvm/nvcxx/cuda required:
+    spack install neso.adaptivecpp compilationflow=omplibraryonly 
 
-# openmp only
-    spack install neso.adaptivecpp
-to avoid llvm build
+OpenMP backend with compilation through ACPP LLVM plugin:
+    spack install neso.adaptivecpp compilationflow=ompaccelerated
+
+CUDA backend with cuda compiled via LLVM, cuda_arch should be specified:
+    spack install neso.adaptivecpp compilationflow=cudallvm cuda_arch=89
+
+CUDA backend with cuda compiled via nvhpc, no LLVM required, does require nvhpc:
+    spack install neso.adaptivecpp compilationflow=cudallvm
+
+ACPP generic backend that performs JIT compilation via LLVM, optionally with CUDA support:
+    spack install neso.adaptivecpp compilationflow=generic
+    spack install neso.adaptivecpp compilationflow=generic +cuda
+
 """
 
 
