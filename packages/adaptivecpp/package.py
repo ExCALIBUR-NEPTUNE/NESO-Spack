@@ -361,7 +361,7 @@ class Adaptivecpp(CMakePackage):
                 "-DDISABLE_FIND_PACKAGE_CUDA=TRUE",
             ]
 
-        if cudanvcxx_in_spec in spec:
+        if cudanvcxx_in_spec:
             nvcpp_cands = glob(
                 path.join(spec["nvhpc"].prefix, "**/nvc++"), recursive=True
             )
@@ -391,7 +391,7 @@ class Adaptivecpp(CMakePackage):
     @run_after("install")
     def filter_config_file(self):
 
-        cudanvcxx_in_spec = ("+nvcxx" in spec) or (
+        cudanvcxx_in_spec = ("+nvcxx" in self.spec) or (
             self.compilation_workflow == "cudanvcxx"
         )
 
