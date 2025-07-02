@@ -25,7 +25,7 @@ CUDA backend with cuda compiled via LLVM, cuda_arch should be specified:
     spack install neso.adaptivecpp compilationflow=cudallvm cuda_arch=89
 
 CUDA backend with cuda compiled via nvhpc, no LLVM required, does require nvhpc:
-    spack install neso.adaptivecpp compilationflow=cudallvm
+    spack install neso.adaptivecpp compilationflow=cudanvcxx
 
 ACPP generic backend that performs JIT compilation via LLVM, optionally with CUDA support:
     spack install neso.adaptivecpp compilationflow=generic
