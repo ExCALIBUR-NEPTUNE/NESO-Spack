@@ -12,7 +12,7 @@ from llnl.util import filesystem
 from spack import *
 
 """
-Installing with a specified compilationflow variant will create a AdaptiveCpp
+Installing with a specified compilationflow variant will create an AdaptiveCpp
 installation that compiles with that compilation flow by default.
 
 The default, no llvm/nvcxx/cuda required:
