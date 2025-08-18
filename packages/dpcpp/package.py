@@ -7,13 +7,15 @@
 from os import path
 from pathlib import Path
 
-from llnl.util import filesystem
 import spack
 from spack import *
 from spack.package import *
 
 if spack_version_info[0] >= 1:
     from spack_repo.builtin.build_systems.generic import Package
+    from spack.llnl.util import filesystem
+else:
+    from llnl.util import filesystem
 
 
 def _get_pkg_versions(pkg_name):

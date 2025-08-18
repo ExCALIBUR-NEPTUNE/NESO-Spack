@@ -7,13 +7,16 @@ import json
 from os import path
 from glob import glob
 
-from llnl.util import filesystem
-
 from spack import *
 from spack.package import *
 
 if spack_version_info[0] >= 1:
     from spack_repo.builtin.build_systems.cmake import CMakePackage
+
+    import spack
+    from spack.llnl.util import filesystem
+else:
+    from llnl.util import filesystem
 
 """
 Install nvc++ version with soemthing like

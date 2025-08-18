@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-import llnl.util.filesystem as fs
 from spack import *
 from spack.package import *
 
@@ -12,6 +11,11 @@ import shutil
 
 if spack_version_info[0] >= 1:
     from spack_repo.builtin.build_systems.cmake import CMakePackage
+
+    import spack
+    from spack.llnl.util import filesystem
+else:
+    from llnl.util import filesystem
 
 
 class Nektar(CMakePackage):
@@ -238,7 +242,7 @@ class Nektar(CMakePackage):
                 + python_build_directory
                 + "/setup.py"
             )
-            with fs.working_dir(python_build_directory):
+            with filesystem.working_dir(python_build_directory):
                 python("setup.py", "install", "--prefix", prefix)
 
     def setup_run_environment(self, env):
