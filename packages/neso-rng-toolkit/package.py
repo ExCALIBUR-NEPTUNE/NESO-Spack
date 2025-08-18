@@ -1,4 +1,8 @@
 from spack import *
+from spack.package import *
+
+if spack_version_info[0] >= 1:
+    from spack_repo.builtin.build_systems.cmake import CMakePackage
 
 
 class NesoRngToolkit(CMakePackage):

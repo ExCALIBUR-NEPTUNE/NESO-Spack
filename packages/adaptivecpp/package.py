@@ -10,6 +10,11 @@ from glob import glob
 from llnl.util import filesystem
 
 from spack import *
+from spack.package import *
+
+if spack_version_info[0] >= 1:
+    from spack_repo.builtin.build_systems.cmake import CMakePackage
+    from spack_repo.builtin.build_systems.cuda import CudaPackage
 
 """
 Installing with a specified compilationflow variant will create an AdaptiveCpp
@@ -221,9 +226,9 @@ class Adaptivecpp(CMakePackage):
     # loaded as a runtime dependency which then breaks downstream cmake
     # configuration. Downstream cmake finds nvc++ as the compiler which then
     # breaks the downstream projects.
-    depends_on("nvhpc_transitive@22.9:", when="+nvcxx", type="run")
+    depends_on("nvhpc-transitive@22.9:", when="+nvcxx", type="run")
     depends_on(
-        "nvhpc_transitive@22.9:", when="compilationflow=cudanvcxx", type="run"
+        "nvhpc-transitive@22.9:", when="compilationflow=cudanvcxx", type="run"
     )
     depends_on("opencl@3.0", when="+opencl")
 

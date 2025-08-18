@@ -8,7 +8,12 @@ from os import path
 from pathlib import Path
 
 from llnl.util import filesystem
+import spack
 from spack import *
+from spack.package import *
+
+if spack_version_info[0] >= 1:
+    from spack_repo.builtin.build_systems.generic import Package
 
 
 def _get_pkg_versions(pkg_name):
@@ -16,7 +21,7 @@ def _get_pkg_versions(pkg_name):
     Equivalent to 'spack versions <pkg_name>' on the command line"""
     pkg_spec = spack.spec.Spec(pkg_name)
     spack_version = spack.spack_version_info
-    if spack_version[1] <= 20:
+    if spack_version[0] < 1 and spack_version[1] <= 20:
         pkg_cls = spack.repo.path.get_pkg_class(pkg_name)
     else:
         pkg_cls = spack.repo.PATH.get_pkg_class(pkg_name)
@@ -41,7 +46,9 @@ class Dpcpp(Package):
     SYCL. This involves setting some extra environment variables for
     the Intel oneAPI compilers."""
 
-    homepage = "https://software.intel.com/content/www/us/en/develop/tools/oneapi.html"
+    homepage = (
+        "https://software.intel.com/content/www/us/en/develop/tools/oneapi.html"
+    )
     maintainers = ["cmacmackin"]
 
     # These are the same as the available versions of OneAPI
@@ -106,7 +113,12 @@ class Dpcpp(Package):
             self._oneapi_root / "tbb" / "latest" / "lib" / "intel64" / "gcc4.8",
             self._compiler_dir.parent / "lib",
             self._compiler_dir.parent / "lib" / "x64",
-            self._compiler_dir.parent / "lib" / "oclfpga" / "host" / "linux64" / "lib",
+            self._compiler_dir.parent
+            / "lib"
+            / "oclfpga"
+            / "host"
+            / "linux64"
+            / "lib",
             self._compiler_dir.parent / "compiler" / "lib" / "intel64_lin",
             self._compiler_dir.parent / "lib" / "emu",
             self._compiler_dir.parent / "lib" / "oclfpga" / "linux64" / "lib",
