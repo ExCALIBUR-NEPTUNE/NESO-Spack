@@ -53,6 +53,9 @@ class Dpcpp(Package):
     )
     maintainers = ["cmacmackin"]
 
+    # required to populate self.compiler.cxx?
+    depends_on("cxx")
+
     # These are the same as the available versions of OneAPI
     # compilers.
     available_versions = _get_pkg_versions("intel-oneapi-compilers")

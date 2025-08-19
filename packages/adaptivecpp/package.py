@@ -131,6 +131,9 @@ class Adaptivecpp(CMakePackage):
         description="Enable OpenCL backend.",
     )
 
+    depends_on("c")
+    depends_on("cxx")
+
     depends_on("cmake@3.5:", type="build")
     depends_on("boost +filesystem", when="@23.10.0:")
     depends_on(

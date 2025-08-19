@@ -72,6 +72,9 @@ class Hipsycl(CMakePackage):
         description="Enable accelerated OMP backend for SYCL kernels using LLVM",
     )
 
+    depends_on("c")
+    depends_on("cxx")
+
     depends_on("cmake@3.5:", type="build")
     depends_on("boost +filesystem", when="@:0.8")
     depends_on(
