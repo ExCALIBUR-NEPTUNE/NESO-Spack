@@ -385,8 +385,17 @@ class Adaptivecpp(CMakePackage):
             ]
 
         if cudanvcxx_in_spec:
+
+            # In Spack v1 packages can only access their direct dependencies
+            # through self.spec.
+            nvhpc_prefix = None
+            if spack_version_info[0] >= 1:
+                nvhpc_prefix = spec["nvhpc-transitive"]["nvhpc"].prefix
+            else:
+                nvhpc_prefix = spec["nvhpc"].prefix
+
             nvcpp_cands = glob(
-                path.join(spec["nvhpc"].prefix, "**/nvc++"), recursive=True
+                path.join(nvhpc_prefix, "**/nvc++"), recursive=True
             )
             if len(nvcpp_cands) < 1:
                 raise InstallError("Failed to find nvc++ executable")
