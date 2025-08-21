@@ -54,19 +54,23 @@ class Dpcpp(Package):
     maintainers = ["cmacmackin"]
 
     # required to populate self.compiler.cxx?
+    #depends_on("c")
     depends_on("cxx")
+    depends_on("intel-oneapi-compilers")
+    
+    version("working")
 
     # These are the same as the available versions of OneAPI
     # compilers.
-    available_versions = _get_pkg_versions("intel-oneapi-compilers")
-    for idx, v in enumerate(available_versions):
-        version(v)
-        # The version of DPC++ must be the same as that of the OneAPI compilers.
-        conflicts(
-            "%oneapi@" + _restrict_to_version(available_versions, idx),
-            when="@" + v,
-            msg="DPC++ version must match that of OneAPI compilers.",
-        )
+    #available_versions = _get_pkg_versions("intel-oneapi-compilers")
+    #for idx, v in enumerate(available_versions):
+    #    version(v)
+    #    # The version of DPC++ must be the same as that of the OneAPI compilers.
+    #    conflicts(
+    #        "%oneapi@" + _restrict_to_version(available_versions, idx),
+    #        when="@" + v,
+    #        msg="DPC++ version must match that of OneAPI compilers.",
+    #    )
 
     # This has to come after the versions (only became an issue after
     # automatically identifying oneAPI versions, for some reason)
@@ -94,8 +98,8 @@ class Dpcpp(Package):
         "%xl-r",
     ]
 
-    for comp in CONFLICTING_COMPILERS:
-        conflicts(comp, msg="DPC++ only supported by Intel oneAPI compilers.")
+    #for comp in CONFLICTING_COMPILERS:
+    #    conflicts(comp, msg="DPC++ only supported by Intel oneAPI compilers.")
 
     has_code = False
     phases = []
