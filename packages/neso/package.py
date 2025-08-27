@@ -133,7 +133,7 @@ class Neso(CMakePackage):
     depends_on(nektar_base_spec, when="~cwipi", type="link")
     depends_on(nektar_base_spec + "+cwipi", when="+cwipi", type="link")
 
-    conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
+    #conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     conflicts(
         "^dpcpp",
         when="%gcc",
