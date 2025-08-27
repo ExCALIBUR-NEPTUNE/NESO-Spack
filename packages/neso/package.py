@@ -113,6 +113,8 @@ class Neso(CMakePackage):
         description="Only compiles the library elements and not the solvers or tests",
     )
 
+    depends_on("c")
+    depends_on("cxx")
     # Some SYCL packages require a specific run-time environment to be set
     depends_on("sycl", type=("build", "link"))
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
