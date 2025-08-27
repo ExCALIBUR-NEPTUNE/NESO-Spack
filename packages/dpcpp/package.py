@@ -54,9 +54,8 @@ class Dpcpp(Package):
     maintainers = ["cmacmackin"]
 
     # required to populate self.compiler.cxx?
-    #depends_on("c")
+    depends_on("c")
     depends_on("cxx")
-    depends_on("intel-oneapi-compilers")
     
     version("working")
 
