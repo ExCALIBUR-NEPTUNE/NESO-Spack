@@ -143,11 +143,11 @@ class Nektar(CMakePackage):
     depends_on("lapack")
     # Last version supporting C++11
     depends_on(
-        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic +python +numpy",
+        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic +python +numpy +math",
         when="+python",
     )
     depends_on(
-        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic",
+        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic +math",
         when="~python",
     )
     depends_on("tinyxml", when="platform=darwin")
