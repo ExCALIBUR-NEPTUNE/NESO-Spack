@@ -120,7 +120,8 @@ class Neso(CMakePackage):
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     depends_on("fftw-api", type="link")
     depends_on("cmake@3.24:", type="build")
-    depends_on("boost@1.74:", type="test")
+    depends_on("boost@1.74: +random +math +iostreams +program_options",
+               type="build", "link", "run")
     depends_on("googletest+gmock", type="link")
     depends_on("neso-particles")
     depends_on("mpi", type=("build", "run"))
