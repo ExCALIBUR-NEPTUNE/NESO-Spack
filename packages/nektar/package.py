@@ -25,6 +25,10 @@ class Nektar(CMakePackage):
 
     git = "https://gitlab.nektar.info/nektar/nektar.git"
 
+    # If you are adding a newer Nektar release, e.g. 5.8 and NESO has been
+    # updated to use a Nektar++ version with the newer python finding cmake
+    # then re-visit the python version restriction below and delete this
+    # comment.
     version("master", branch="master", preferred=True)
     version("5.7.0", commit="ebf2aec4f840729ffb2845ead6d462be6f6f341a")
     version("5.6.0", commit="bb87ccd8ad00fe0aec9c9e74b812b777186e1691")
@@ -158,7 +162,18 @@ class Nektar(CMakePackage):
     depends_on("scotch +mpi ~metis", when="+mpi+scotch")
     depends_on("scotch@7: +mpi ~metis", when="@5.6.0: +mpi+scotch")
 
-    extends("python@3:", when="+python")
+    # The cmake for Nektar++ 5.7 and older has lines like "from distutils
+    # import sysconfig as s". 3.11 is the last python release with distutils.
+    # Notionally py-setuputils can provide distutils but in practice this is
+    # not working properly. Nekar++ 5.8 onwards has different python finding
+    # cmake which might work fine with newer python releases.
+    # 
+    # We could make @master use newer python releases but we risk the
+    # "infinity" versions in downstream envs (NESO) using the new python whilst
+    # the submodule commit they have is still 5.7 based. Once NESO is patched
+    # to work with nektar 5.8 onwards we should update this line to allow newer
+    # python releases and @master to use new python releases.
+    extends("python@3.11:", when="+python")
 
     conflicts(
         "+cwipi",
