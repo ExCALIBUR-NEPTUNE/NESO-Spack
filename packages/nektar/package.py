@@ -173,7 +173,7 @@ class Nektar(CMakePackage):
     # the submodule commit they have is still 5.7 based. Once NESO is patched
     # to work with nektar 5.8 onwards we should update this line to allow newer
     # python releases and @master to use new python releases.
-    extends("python@3.11:", when="+python")
+    extends("python@:3.11", when="+python")
 
     conflicts(
         "+cwipi",
