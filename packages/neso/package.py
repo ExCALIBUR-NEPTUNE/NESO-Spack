@@ -120,8 +120,20 @@ class Neso(CMakePackage):
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     depends_on("fftw-api", type="link")
     depends_on("cmake@3.24:", type="build")
-    depends_on("boost@1.74: +random +math +iostreams +program_options",
-               type=("build", "link", "run"))
+
+    # Boost Math versions 1.87.0 and 1.88.0 are broken when compiled with a
+    # SYCL implementation even on the host. See
+    #   https://github.com/boostorg/math/issues/1322
+    # for more details. The issue applies even when boost::math is included
+    # transitively, e.g. through nektar headers. 1.89.0 might work with oneAPI
+    # but is not yet in the spack packages repo. At the time of writing the fix
+    # is not yet merged into boost::math develop, hence there is an unknown
+    # timeline for when the fix will be in a release version.
+    depends_on(
+        "boost@1.74:1.86.0 +random +math +iostreams +program_options",
+        type=("build", "link", "run"),
+    )
+
     depends_on("googletest+gmock", type="link")
     depends_on("neso-particles")
     depends_on("mpi", type=("build", "run"))
@@ -134,7 +146,7 @@ class Neso(CMakePackage):
     depends_on(nektar_base_spec, when="~cwipi", type="link")
     depends_on(nektar_base_spec + "+cwipi", when="+cwipi", type="link")
 
-    #conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
+    # conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     conflicts(
         "^dpcpp",
         when="%gcc",
