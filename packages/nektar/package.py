@@ -25,11 +25,12 @@ class Nektar(CMakePackage):
 
     git = "https://gitlab.nektar.info/nektar/nektar.git"
 
-    # If you are adding a newer Nektar release, e.g. 5.8 and NESO has been
-    # updated to use a Nektar++ version with the newer python finding cmake
-    # then re-visit the python version restriction below and delete this
+    # If you are adding a newer Nektar release, e.g. 5.8 onwards and NESO has
+    # been updated to use a Nektar++ version with the newer python finding
+    # cmake then re-visit the python version restriction below and delete this
     # comment.
     version("master", branch="master", preferred=True)
+    version("5.8.0", commit="837223d7a51da426127052d535297d97f413bef7")
     version("5.7.0", commit="ebf2aec4f840729ffb2845ead6d462be6f6f341a")
     version("5.6.0", commit="bb87ccd8ad00fe0aec9c9e74b812b777186e1691")
     version("5.5.0", commit="4365d5d7156139f238db962deae5eb25e0437d12")
