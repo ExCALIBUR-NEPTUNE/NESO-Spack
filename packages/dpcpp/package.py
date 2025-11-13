@@ -53,23 +53,27 @@ class Dpcpp(Package):
     )
     maintainers = ["cmacmackin"]
 
-    # required to populate self.compiler.cxx?
-    depends_on("c")
-    depends_on("cxx")
-    
-    version("working")
-
     # These are the same as the available versions of OneAPI
     # compilers.
-    #available_versions = _get_pkg_versions("intel-oneapi-compilers")
-    #for idx, v in enumerate(available_versions):
-    #    version(v)
-    #    # The version of DPC++ must be the same as that of the OneAPI compilers.
-    #    conflicts(
-    #        "%oneapi@" + _restrict_to_version(available_versions, idx),
-    #        when="@" + v,
-    #        msg="DPC++ version must match that of OneAPI compilers.",
-    #    )
+    available_versions = _get_pkg_versions("intel-oneapi-compilers")
+    for idx, v in enumerate(available_versions):
+        version(v)
+        # The version of DPC++ must be the same as that of the OneAPI compilers.
+        conflicts(
+            "%oneapi@" + _restrict_to_version(available_versions, idx),
+            when="@" + v,
+            msg="DPC++ version must match that of OneAPI compilers.",
+        )
+        # We depend on intel-oneapi-compilers explicitly at build time such
+        # that this package can inspect the prefix to create the envrionment
+        # variables. We depend on intel-oneapi-compilers at runtime to ensure
+        # that intel-oneapi-compilers is loaded as a runtime dependency for
+        # downstream packages built with dpcpp.
+        depends_on(
+            "intel-oneapi-compilers@" + v,
+            when="@" + v,
+            type=("build", "link", "run"),
+        )
 
     # This has to come after the versions (only became an issue after
     # automatically identifying oneAPI versions, for some reason)
@@ -84,7 +88,6 @@ class Dpcpp(Package):
         "%arm",
         "%cce",
         "%clang",
-        "%dpcpp",
         "%fj",
         "%gcc",
         "%intel",
@@ -97,60 +100,50 @@ class Dpcpp(Package):
         "%xl-r",
     ]
 
-    #for comp in CONFLICTING_COMPILERS:
-    #    conflicts(comp, msg="DPC++ only supported by Intel oneAPI compilers.")
+    for comp in CONFLICTING_COMPILERS:
+        conflicts(
+            comp,
+            msg=f"DPC++ only supported by Intel oneAPI compilers. Compiler is {comp}.",
+        )
 
     has_code = False
     phases = []
 
-    @property
+    # For some reason the spack package wrapper will not find or run these
+    # methods if they are marked with @property.
     def _compiler_dir(self):
-        return Path(self.compiler.cxx).parent
+        return self._oneapi_root() / "compiler" / "latest" / "bin"
 
-    @property
     def _oneapi_root(self):
-        return self._compiler_dir.parent.parent.parent.parent
+        return Path(self.spec["intel-oneapi-compilers"].prefix)
 
-    @property
-    def cmake_prefix_paths(self):
-        return [str(self._compiler_dir.parent / "IntelDPCPP")]
-
-    @property
     def _library_paths(self):
+        # WRS note: I've trimmed this list to remove the paths that mention
+        # emulation or fpgas.
         return [
-            self._oneapi_root / "tbb" / "latest" / "lib" / "intel64" / "gcc4.8",
-            self._compiler_dir.parent / "lib",
-            self._compiler_dir.parent / "lib" / "x64",
-            self._compiler_dir.parent
+            self._oneapi_root()
+            / "tbb"
+            / "latest"
             / "lib"
-            / "oclfpga"
-            / "host"
-            / "linux64"
-            / "lib",
-            self._compiler_dir.parent / "compiler" / "lib" / "intel64_lin",
-            self._compiler_dir.parent / "lib" / "emu",
-            self._compiler_dir.parent / "lib" / "oclfpga" / "linux64" / "lib",
-            self._compiler_dir.parent / "compiler" / "lib",
+            / "intel64"
+            / "gcc4.8",
+            self._compiler_dir().parent / "lib",
+            self._compiler_dir().parent / "lib" / "x64",
+            self._compiler_dir().parent / "compiler" / "lib" / "intel64_lin",
+            self._compiler_dir().parent / "compiler" / "lib",
         ]
-
-    @property
-    def libs(self):
-        libs = []
-        for path in self._library_paths:
-            libs += filesystem.find_libraries("*.so*", path)
-        return libs
 
     def install(self):
         pass
 
     def _setup_common_dependent_environment(self, env, dependent_spec):
-        env.set("ONEAPI_ROOT", str(self._oneapi_root))
-        env.append_path("PATH", str(self._compiler_dir))
+        env.set("ONEAPI_ROOT", str(self._oneapi_root()))
+        env.append_path("PATH", str(self._compiler_dir()))
         # Need to set this in order to allow DLOPEN to find backend
         # libraries at runtime. Hopefully later releases will render
         # this unnecessary (see
         # https://github.com/intel/llvm/blob/sycl/sycl/doc/design/PluginInterface.md#plugin-discovery).
-        for path in self._library_paths:
+        for path in self._library_paths():
             # env.append_flags("__INTEL_PRE_CFLAGS", f"-Wl,-rpath,{path}")
             env.append_path("LD_LIBRARY_PATH", str(path))
 
@@ -158,15 +151,33 @@ class Dpcpp(Package):
         self._setup_common_dependent_environment(env, dependent_spec)
         env.prepend_path(
             "PKG_CONFIG_PATH",
-            str(self._oneapi_root / "tbb" / "latest" / "lib" / "pkgconfig"),
+            str(self._oneapi_root() / "tbb" / "latest" / "lib" / "pkgconfig"),
         )
         env.prepend_path(
             "PKG_CONFIG_PATH",
-            str(self._compiler_dir.parent.parent / "lib" / "pkgconfig"),
+            str(self._compiler_dir().parent.parent / "lib" / "pkgconfig"),
         )
-        env.append_path("SYCL_INCLUDE_DIR_HINT", str(self._compiler_dir.parent))
-        env.append_path("SYCL_LIBRARY_DIR_HINT", str(self._compiler_dir.parent))
+        env.append_path(
+            "SYCL_INCLUDE_DIR_HINT", str(self._compiler_dir().parent)
+        )
+        env.append_path(
+            "SYCL_LIBRARY_DIR_HINT", str(self._compiler_dir().parent)
+        )
 
     def setup_dependent_run_environment(self, env, dependent_spec):
-        # Not clear which of these I really need, or whether they should be run-time or build-time
+        # Not clear which of these I really need, or whether they should be
+        # run-time or build-time
         self._setup_common_dependent_environment(env, dependent_spec)
+
+    def setup_run_environment(self, env):
+        # We set these such that sycl-ls should work with "spack load dpcpp"
+        env.append_path("PATH", str(self._compiler_dir()))
+        for path in self._library_paths():
+            env.append_path("LD_LIBRARY_PATH", str(path))
+
+        # If this env var is not set sycl-ls will work with spack load but not
+        # modules?
+        env.append_path(
+            "OCL_ICD_FILENAMES",
+            self._compiler_dir().parent / "lib" / "libintelocl.so",
+        )

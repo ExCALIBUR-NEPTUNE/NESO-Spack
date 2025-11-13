@@ -133,6 +133,8 @@ class Nektar(CMakePackage):
         description="Builds an executable associated with the Vortex Wave solver",
     )
 
+    depends_on("c")
+    depends_on("cxx")
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
     depends_on("py-setuptools", when="@master")
