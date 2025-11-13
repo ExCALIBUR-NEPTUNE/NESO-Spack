@@ -117,16 +117,13 @@ class Dpcpp(Package):
     def _oneapi_root(self):
         return Path(self.spec["intel-oneapi-compilers"].prefix)
 
+    def _oneapi_tbb_root(self):
+        return self._oneapi_root() / "tbb" / "latest"
+
     def _library_paths(self):
         # WRS note: I've trimmed this list to remove the paths that mention
         # emulation or fpgas.
         return [
-            self._oneapi_root()
-            / "tbb"
-            / "latest"
-            / "lib"
-            / "intel64"
-            / "gcc4.8",
             self._compiler_dir().parent / "lib",
             self._compiler_dir().parent / "lib" / "x64",
             self._compiler_dir().parent / "compiler" / "lib" / "intel64_lin",
@@ -136,7 +133,7 @@ class Dpcpp(Package):
     def install(self):
         pass
 
-    def _setup_common_dependent_environment(self, env, dependent_spec):
+    def _setup_common_dependent_environment(self, env):
         env.set("ONEAPI_ROOT", str(self._oneapi_root()))
         env.append_path("PATH", str(self._compiler_dir()))
         # Need to set this in order to allow DLOPEN to find backend
@@ -146,38 +143,58 @@ class Dpcpp(Package):
         for path in self._library_paths():
             # env.append_flags("__INTEL_PRE_CFLAGS", f"-Wl,-rpath,{path}")
             env.append_path("LD_LIBRARY_PATH", str(path))
+            env.append_path("LIBRARY_PATH", str(path))
 
-    def setup_dependent_build_environment(self, env, dependent_spec):
-        self._setup_common_dependent_environment(env, dependent_spec)
-        env.prepend_path(
-            "PKG_CONFIG_PATH",
-            str(self._oneapi_root() / "tbb" / "latest" / "lib" / "pkgconfig"),
-        )
         env.prepend_path(
             "PKG_CONFIG_PATH",
             str(self._compiler_dir().parent.parent / "lib" / "pkgconfig"),
         )
-        env.append_path(
-            "SYCL_INCLUDE_DIR_HINT", str(self._compiler_dir().parent)
-        )
-        env.append_path(
-            "SYCL_LIBRARY_DIR_HINT", str(self._compiler_dir().parent)
-        )
 
-    def setup_dependent_run_environment(self, env, dependent_spec):
-        # Not clear which of these I really need, or whether they should be
-        # run-time or build-time
-        self._setup_common_dependent_environment(env, dependent_spec)
-
-    def setup_run_environment(self, env):
-        # We set these such that sycl-ls should work with "spack load dpcpp"
-        env.append_path("PATH", str(self._compiler_dir()))
-        for path in self._library_paths():
-            env.append_path("LD_LIBRARY_PATH", str(path))
+        # IntelSYCL does not behave well if these are a list rather than a
+        # single path.
+        for var in ("SYCL_INCLUDE_DIR_HINT", "SYCL_LIBRARY_DIR_HINT"):
+            if not var in env:
+                env.set(var, str(self._compiler_dir().parent))
 
         # If this env var is not set sycl-ls will work with spack load but not
         # modules?
         env.append_path(
             "OCL_ICD_FILENAMES",
-            self._compiler_dir().parent / "lib" / "libintelocl.so",
+            str(self._compiler_dir().parent / "lib" / "libintelocl.so"),
         )
+
+        # Make available the TBB that is shipped with intel-oneapi-compilers.
+        # IntelSYCL needs this at runtime to run hence if something else is
+        # going to try and find a TBB install it should find the same install
+        # that will be loaded at runtime. Packages that do require TBB should
+        # specifiy ^intel-oneapi-tbb with a version that matches the TBB
+        # shipped with the corresponding intel-oneapi-compilers.
+        env.set("TBBROOT", str(self._oneapi_tbb_root()))
+        tbb_library_path = (
+            self._oneapi_tbb_root() / "lib" / "intel64" / "gcc4.8"
+        )
+        env.append_path("LD_LIBRARY_PATH", str(tbb_library_path))
+        env.append_path("LIBRARY_PATH", str(tbb_library_path))
+        env.append_path(
+            "C_INCLUDE_PATH", str(self._oneapi_tbb_root() / "include")
+        )
+        env.append_path(
+            "CPLUS_INCLUDE_PATH", str(self._oneapi_tbb_root() / "include")
+        )
+        env.append_path("CMAKE_PREFIX_PATH", str(self._oneapi_tbb_root()))
+        env.append_path(
+            "PKG_CONFIG_PATH",
+            str(self._oneapi_tbb_root() / "lib" / "pkgconfig"),
+        )
+
+    def setup_dependent_build_environment(self, env, dependent_spec):
+        self._setup_common_dependent_environment(env)
+
+    def setup_dependent_run_environment(self, env, dependent_spec):
+        # Not clear which of these I really need, or whether they should be
+        # run-time or build-time
+        self._setup_common_dependent_environment(env)
+
+    def setup_run_environment(self, env):
+        # We set these such that sycl-ls should work with "spack load dpcpp"
+        self._setup_common_dependent_environment(env)

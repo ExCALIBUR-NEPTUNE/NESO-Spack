@@ -1,5 +1,6 @@
 from spack import *
 from spack.package import *
+from pathlib import Path
 
 if spack_version_info[0] >= 1:
     from spack_repo.builtin.build_systems.cmake import CMakePackage
@@ -33,10 +34,10 @@ class NesoRngToolkit(CMakePackage):
     conflicts("+onemkl", when="+curand")
 
     # Depend on a sycl implementation.
+    depends_on("c")
+    depends_on("cxx")
     depends_on("sycl", type=("build", "link", "run"))
-    depends_on(
-        "intel-oneapi-mkl", when="+onemkl", type=("build", "link", "run")
-    )
+    depends_on("dpcpp", when="+onemkl", type=("build", "link", "run"))
     depends_on("cuda", when="+curand", type=("build", "link", "run"))
     depends_on("googletest@1.10.0:", type=("build", "link", "run"))
     depends_on("cmake@3.24:", type="build")
@@ -44,7 +45,18 @@ class NesoRngToolkit(CMakePackage):
     # Add the corresponding RNG backend when we detect particular SYCL
     # implementations. The default CMake variables of NESO-RNG-Toolkit will
     # search for these backends and enable them if found in a non-fatal manner.
-    depends_on("intel-oneapi-mkl", when="^dpcpp", type=("build", "link", "run"))
+
+    # intel-oneapi-mkl depends on tbb as a virtual dependency. As tbb is a
+    # virtual dependency spack may satisfy that dependency with a different
+    # tbb package other than the intel-oneapi-tbb package. If the
+    # intel-oneapi-tbb package isn't used you will see cmake errors along the
+    # lines of unable to find the MKL::MKL_DPCPP target.
+    depends_on(
+        "intel-oneapi-mkl threads=tbb %intel-oneapi-tbb",
+        when="^dpcpp",
+        type=("build", "link", "run"),
+    )
+
     depends_on(
         "cuda",
         when="^adaptivecpp compilationflow=cudallvm",
