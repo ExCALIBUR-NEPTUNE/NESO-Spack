@@ -49,10 +49,11 @@ class NesoRngToolkit(CMakePackage):
     # intel-oneapi-mkl depends on tbb as a virtual dependency. As tbb is a
     # virtual dependency spack may satisfy that dependency with a different
     # tbb package other than the intel-oneapi-tbb package. If the
-    # intel-oneapi-tbb package isn't used you will see cmake errors along the
-    # lines of unable to find the MKL::MKL_DPCPP target.
+    # intel-oneapi-tbb package isn't used, or a compatible TBB otherwise made
+    # available, you may see cmake errors along the lines of unable to find the
+    # MKL::MKL_DPCPP target.
     depends_on(
-        "intel-oneapi-mkl threads=tbb %intel-oneapi-tbb",
+        "intel-oneapi-mkl%intel-oneapi-tbb",
         when="^dpcpp",
         type=("build", "link", "run"),
     )
