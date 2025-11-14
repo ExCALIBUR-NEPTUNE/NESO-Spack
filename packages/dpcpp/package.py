@@ -1,3 +1,86 @@
+"""
+Notes
+=====
+
+This file contains a Spack package to handle building with the IntelSYCL
+implementation.
+
+Compiler
+--------
+
+The IntelSYCL compiler, and a runtime, is packaged within the
+intel-oneapi-compilers Spack package. However in spack the package which
+"provides sycl" is the intel-oneapi-runtime package. The intel-oneapi-runtime
+package may or may not, depending on when you are reading this, load all the
+required environment variables to use the IntelSYCL implementation. Note that
+we make this package "provide sycl" such that it is included in the dependency
+tree.
+
+IntelSYCL Runtime
+-----------------
+
+The easiest way to test if the IntelSYCL runtime is successfully loaded is to
+run the sycl-ls tool. This tool is packaged in the intel-oneapi-compilers Spack
+package. This utility is a SYCL program itself, hence if it does successfully
+find an expected SYCL backend in a given environment then the environment is
+usually setup correctly to run IntelSYCL applications. For example,
+
+    ~$ sycl-ls
+    [opencl:cpu][opencl:0] Intel(R) OpenCL, AMD Ryzen Threadripper 7970X 32-Cores
+
+The IntelSYCL runtime is OpenCL based and assumes that the OCL_ICD_FILENAMES
+environment variable contains an Intel OpenCL library, e.g.
+
+    OCL_ICD_FILENAMES=/opt/spack-v1.0.1/linux-zen4/intel-oneapi-compilers-2025.2.0-7jirzirkyx3xvispmd375dtw6ieu6gt5/compiler/2025.2/lib/libintelocl.so
+
+The OCL_ICD_FILENAMES variable does seem to be correctly set on loading
+intel-oneapi-compilers either via spack load or modules at the time of writing.
+
+The IntelSYCL CPU runtime depends, at the time of writing, on a compatible set
+of TBB libraries being available. In this context "available" means that the
+LD_LIBRARY_PATH contains paths which contain the compatible TBB libraries. If
+sycl-ls returns no CPU backends then check TBB has been loaded. This package
+attempts to make available the TBB shipped with intel-oneapi-compilers at build
+time and runtime.
+
+If TBB is still not loaded correctly navigate to the intel-oneapi-compilers
+directory, e.g. find the install directory with
+
+    $ spack find --paths intel-oneapi-compilers
+    # or, if intel-oneapi-compilers is loaded
+    $ which icpx
+
+then source the file as follows
+
+    source <intel-oneapi-compilers-install-prefix>/tbb/latest/env/vars.sh
+
+If you are attempting to modify this package to fix TBB related issues, see the
+end of the above file to investigate what should be set.
+
+TBB Runtimes
+------------
+
+Many of the intel-oneapi-* packages come with a vendored copy of TBB as part of
+the package. It seems that for each release of intel-oneapi-* there is a
+corresponding TBB release in intel-oneapi-tbb. We source the TBB shipped in the
+intel-oneapi-compilers package as we definitely depend on 
+intel-oneapi-compilers and the copy shipped with intel-oneapi-compilers
+contains the cmake files as well as the runtime libraries and header files.
+
+MKL TBB Dependency
+------------------
+
+The intel-oneapi-mkl package has a virtual dependency on TBB. The
+intel-oneapi-mkl package also contains a copy of TBB as discussed in the
+previous paragraph. If your downstream package depends on intel-oneapi-mkl it
+is recommended that you specify MKL as 
+
+    ^intel-oneapi-mkl@version %intel-oneapi-tbb@compatible-version
+
+Failure to specify a intel-oneapi-tbb package may cause Spack to satisfy the
+TBB dependency with a different, non-oneapi, TBB package.
+"""
+
 # Copyright 2013-2021 Lawrence Livermore National Security, LLC and other
 # Spack Project Developers. See the top-level COPYRIGHT file for details.
 #
