@@ -4,10 +4,14 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
 from os import environ
+from spack import *
 from spack.package import *
 from spack.error import SpecError
 import spack
 from warnings import warn
+
+if spack_version_info[0] >= 1:
+    from spack_repo.builtin.build_systems.cmake import CMakePackage
 
 
 def _validate_sanitizer_variant(pkg_name, variant_name, values):
@@ -33,7 +37,7 @@ def _get_pkg_versions(pkg_name):
     Equivalent to 'spack versions <pkg_name>' on the command line"""
     pkg_spec = spack.spec.Spec(pkg_name)
     spack_version = spack.spack_version_info
-    if spack_version[1] <= 20:
+    if spack_version[0] < 1 and spack_version[1] <= 20:
         pkg_cls = spack.repo.path.get_pkg_class(pkg_name)
     else:
         pkg_cls = spack.repo.PATH.get_pkg_class(pkg_name)
@@ -109,12 +113,27 @@ class Neso(CMakePackage):
         description="Only compiles the library elements and not the solvers or tests",
     )
 
+    depends_on("c")
+    depends_on("cxx")
     # Some SYCL packages require a specific run-time environment to be set
     depends_on("sycl", type=("build", "link"))
     depends_on("intel-oneapi-dpl", when="^dpcpp", type="link")
     depends_on("fftw-api", type="link")
     depends_on("cmake@3.24:", type="build")
-    depends_on("boost@1.74:", type="test")
+
+    # Boost Math versions 1.87.0 and 1.88.0 are broken when compiled with a
+    # SYCL implementation even on the host. See
+    #   https://github.com/boostorg/math/issues/1322
+    # for more details. The issue applies even when boost::math is included
+    # transitively, e.g. through nektar headers. 1.89.0 might work with oneAPI
+    # but is not yet in the spack packages repo. At the time of writing the fix
+    # is not yet merged into boost::math develop, hence there is an unknown
+    # timeline for when the fix will be in a release version.
+    depends_on(
+        "boost@1.74:1.86.0 +random +math +iostreams +program_options",
+        type=("build", "link", "run"),
+    )
+
     depends_on("googletest+gmock", type="link")
     depends_on("neso-particles")
     depends_on("mpi", type=("build", "run"))
@@ -127,7 +146,7 @@ class Neso(CMakePackage):
     depends_on(nektar_base_spec, when="~cwipi", type="link")
     depends_on(nektar_base_spec + "+cwipi", when="+cwipi", type="link")
 
-    conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
+    # conflicts("%dpcpp", msg="Use oneapi compilers instead of dpcpp driver.")
     conflicts(
         "^dpcpp",
         when="%gcc",

@@ -7,9 +7,17 @@ import json
 from os import path
 from glob import glob
 
-from llnl.util import filesystem
-
 from spack import *
+from spack.package import *
+
+if spack_version_info[0] >= 1:
+    from spack_repo.builtin.build_systems.cmake import CMakePackage
+    from spack_repo.builtin.build_systems.cuda import CudaPackage
+
+    import spack
+    from spack.llnl.util import filesystem
+else:
+    from llnl.util import filesystem
 
 """
 Installing with a specified compilationflow variant will create an AdaptiveCpp
@@ -123,6 +131,9 @@ class Adaptivecpp(CMakePackage):
         description="Enable OpenCL backend.",
     )
 
+    depends_on("c")
+    depends_on("cxx")
+
     depends_on("cmake@3.5:", type="build")
     depends_on("boost +filesystem", when="@23.10.0:")
     depends_on(
@@ -221,9 +232,9 @@ class Adaptivecpp(CMakePackage):
     # loaded as a runtime dependency which then breaks downstream cmake
     # configuration. Downstream cmake finds nvc++ as the compiler which then
     # breaks the downstream projects.
-    depends_on("nvhpc_transitive@22.9:", when="+nvcxx", type="run")
+    depends_on("nvhpc-transitive@22.9:", when="+nvcxx", type="run")
     depends_on(
-        "nvhpc_transitive@22.9:", when="compilationflow=cudanvcxx", type="run"
+        "nvhpc-transitive@22.9:", when="compilationflow=cudanvcxx", type="run"
     )
     depends_on("opencl@3.0", when="+opencl")
 
@@ -374,8 +385,17 @@ class Adaptivecpp(CMakePackage):
             ]
 
         if cudanvcxx_in_spec:
+
+            # In Spack v1 packages can only access their direct dependencies
+            # through self.spec.
+            nvhpc_prefix = None
+            if spack_version_info[0] >= 1:
+                nvhpc_prefix = spec["nvhpc-transitive"]["nvhpc"].prefix
+            else:
+                nvhpc_prefix = spec["nvhpc"].prefix
+
             nvcpp_cands = glob(
-                path.join(spec["nvhpc"].prefix, "**/nvc++"), recursive=True
+                path.join(nvhpc_prefix, "**/nvc++"), recursive=True
             )
             if len(nvcpp_cands) < 1:
                 raise InstallError("Failed to find nvc++ executable")

@@ -3,10 +3,19 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-import llnl.util.filesystem as fs
 from spack import *
+from spack.package import *
+
 import os
 import shutil
+
+if spack_version_info[0] >= 1:
+    from spack_repo.builtin.build_systems.cmake import CMakePackage
+
+    import spack
+    from spack.llnl.util import filesystem
+else:
+    from llnl.util import filesystem
 
 
 class Nektar(CMakePackage):
@@ -16,28 +25,44 @@ class Nektar(CMakePackage):
 
     git = "https://gitlab.nektar.info/nektar/nektar.git"
 
+    # If you are adding a newer Nektar release, e.g. 5.8 onwards and NESO has
+    # been updated to use a Nektar++ version with the newer python finding
+    # cmake then re-visit the python version restriction below and delete this
+    # comment.
     version("master", branch="master", preferred=True)
+    version("5.8.0", commit="837223d7a51da426127052d535297d97f413bef7")
     version("5.7.0", commit="ebf2aec4f840729ffb2845ead6d462be6f6f341a")
     version("5.6.0", commit="bb87ccd8ad00fe0aec9c9e74b812b777186e1691")
     version("5.5.0", commit="4365d5d7156139f238db962deae5eb25e0437d12")
     version("5.4.0", commit="002bf62648ec667e10524ceb8a98bb1c21804130")
-    version("5.3.0-2022-09-03", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945")
+    version(
+        "5.3.0-2022-09-03", commit="2e0fb86da236e7e5a3590fcf5e0f608bd8490945"
+    )
 
-    patch("add_compflow_solver_lib_v5.3.0_2022-09-03.patch", when="@5.3.0-2022-09-03")
+    patch(
+        "add_compflow_solver_lib_v5.3.0_2022-09-03.patch",
+        when="@5.3.0-2022-09-03",
+    )
     patch("add_compflow_solver_lib_v5.4.0.patch", when="@5.4.0")
 
     variant("cwipi", default=False, description="Builds with CWIPI support")
     variant("mpi", default=True, description="Builds with mpi support")
     variant("fftw", default=True, description="Builds with fftw support")
     variant("arpack", default=True, description="Builds with arpack support")
-    variant("tinyxml", default=True, description="Builds with external tinyxml support")
+    variant(
+        "tinyxml",
+        default=True,
+        description="Builds with external tinyxml support",
+    )
     variant(
         "hdf5",
         default=False,
         description="Builds with hdf5 support (conflicts with builtin?)",
     )
     variant(
-        "scotch", default=True, description="Builds with scotch partitioning support"
+        "scotch",
+        default=True,
+        description="Builds with scotch partitioning support",
     )
     variant("demos", default=False, description="Build demonstration codes")
     variant("python", default=True, description="Enable python support")
@@ -108,6 +133,8 @@ class Nektar(CMakePackage):
         description="Builds an executable associated with the Vortex Wave solver",
     )
 
+    depends_on("c")
+    depends_on("cxx")
     depends_on("cmake@2.8.8:", type="build", when="~hdf5")
     depends_on("cmake@3.2:", type="build", when="+hdf5")
     depends_on("py-setuptools", when="@master")
@@ -119,11 +146,11 @@ class Nektar(CMakePackage):
     depends_on("lapack")
     # Last version supporting C++11
     depends_on(
-        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic +python +numpy",
+        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic +python +numpy +math",
         when="+python",
     )
     depends_on(
-        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic",
+        "boost@1.74.0: +thread +iostreams +filesystem +system +program_options +regex +pic +math",
         when="~python",
     )
     depends_on("tinyxml", when="platform=darwin")
@@ -138,11 +165,28 @@ class Nektar(CMakePackage):
     depends_on("scotch +mpi ~metis", when="+mpi+scotch")
     depends_on("scotch@7: +mpi ~metis", when="@5.6.0: +mpi+scotch")
 
-    extends("python@3:", when="+python")
+    # The cmake for Nektar++ 5.7 and older has lines like "from distutils
+    # import sysconfig as s". 3.11 is the last python release with distutils.
+    # Notionally py-setuputils can provide distutils but in practice this is
+    # not working properly. Nekar++ 5.8 onwards has different python finding
+    # cmake which might work fine with newer python releases.
+    # 
+    # We could make @master use newer python releases but we risk the
+    # "infinity" versions in downstream envs (NESO) using the new python whilst
+    # the submodule commit they have is still 5.7 based. Once NESO is patched
+    # to work with nektar 5.8 onwards we should update this line to allow newer
+    # python releases and @master to use new python releases.
+    extends("python@:3.11", when="+python")
 
-    conflicts("+cwipi", when="~mpi", msg="Nektar requires MPI support to build with CWIPI.")
     conflicts(
-        "+hdf5", when="~mpi", msg="Nektar's hdf5 output is for parallel builds only"
+        "+cwipi",
+        when="~mpi",
+        msg="Nektar requires MPI support to build with CWIPI.",
+    )
+    conflicts(
+        "+hdf5",
+        when="~mpi",
+        msg="Nektar's hdf5 output is for parallel builds only",
     )
 
     def cmake_args(self):
@@ -157,21 +201,38 @@ class Nektar(CMakePackage):
         args.append("-DNEKTAR_BUILD_SOLVER_LIBS=ON")
         args.append("-DNEKTAR_BUILD_UTILITIES=ON")
         args.append("-DNEKTAR_ERROR_ON_WARNINGS=OFF")
-        args.append("-DNEKTAR_SOLVER_ACOUSTIC=%s" % hasfeature("+acoustic_solver"))
-        args.append("-DNEKTAR_SOLVER_ADR=%s" % hasfeature("+adr_solver"))
-        args.append("-DNEKTAR_SOLVER_CARDIAC_EP=%s" % hasfeature("+cardiac_solver"))
         args.append(
-            "-DNEKTAR_SOLVER_COMPRESSIBLE_FLOW=%s" % hasfeature("+compflow_solver")
+            "-DNEKTAR_SOLVER_ACOUSTIC=%s" % hasfeature("+acoustic_solver")
+        )
+        args.append("-DNEKTAR_SOLVER_ADR=%s" % hasfeature("+adr_solver"))
+        args.append(
+            "-DNEKTAR_SOLVER_CARDIAC_EP=%s" % hasfeature("+cardiac_solver")
+        )
+        args.append(
+            "-DNEKTAR_SOLVER_COMPRESSIBLE_FLOW=%s"
+            % hasfeature("+compflow_solver")
         )
         args.append("-DNEKTAR_SOLVER_DIFFUSION=%s" % hasfeature("+diff_solver"))
         args.append("-DNEKTAR_SOLVER_DUMMY=%s" % hasfeature("+dummy_solver"))
-        args.append("-DNEKTAR_SOLVER_ELASTICITY=%s" % hasfeature("+elasticity_solver"))
-        args.append("-DNEKTAR_SOLVER_IMAGE_WARPING=%s" % hasfeature("+imgwarp_solver"))
-        args.append("-DNEKTAR_SOLVER_INCNAVIERSTOKES=%s" % hasfeature("+ins_solver"))
+        args.append(
+            "-DNEKTAR_SOLVER_ELASTICITY=%s" % hasfeature("+elasticity_solver")
+        )
+        args.append(
+            "-DNEKTAR_SOLVER_IMAGE_WARPING=%s" % hasfeature("+imgwarp_solver")
+        )
+        args.append(
+            "-DNEKTAR_SOLVER_INCNAVIERSTOKES=%s" % hasfeature("+ins_solver")
+        )
         args.append("-DNEKTAR_SOLVER_MMF=%s" % hasfeature("+mmf_solver"))
-        args.append("-DNEKTAR_SOLVER_PULSEWAVE=%s" % hasfeature("+pulsewave_solver"))
-        args.append("-DNEKTAR_SOLVER_SHALLOW_WATER=%s" % hasfeature("+shwater_solver"))
-        args.append("-DNEKTAR_SOLVER_VORTEXWAVE=%s" % hasfeature("+vortexwave_solver"))
+        args.append(
+            "-DNEKTAR_SOLVER_PULSEWAVE=%s" % hasfeature("+pulsewave_solver")
+        )
+        args.append(
+            "-DNEKTAR_SOLVER_SHALLOW_WATER=%s" % hasfeature("+shwater_solver")
+        )
+        args.append(
+            "-DNEKTAR_SOLVER_VORTEXWAVE=%s" % hasfeature("+vortexwave_solver")
+        )
         args.append("-DNEKTAR_USE_ARPACK=%s" % hasfeature("+arpack"))
         args.append("-DNEKTAR_USE_CWIPI=%s" % hasfeature("+cwipi"))
         args.append("-DNEKTAR_USE_FFTW=%s" % hasfeature("+fftw"))
@@ -189,7 +250,9 @@ class Nektar(CMakePackage):
         if "+python" in spec:
             python = which("python")
             if spec.satisfies("@master") or spec.satisfies("@5.6.0:"):
-                python_build_directory = os.path.join(self.build_directory, "python")
+                python_build_directory = os.path.join(
+                    self.build_directory, "python"
+                )
             else:
                 python_build_directory = self.build_directory
             print(
@@ -197,7 +260,7 @@ class Nektar(CMakePackage):
                 + python_build_directory
                 + "/setup.py"
             )
-            with fs.working_dir(python_build_directory):
+            with filesystem.working_dir(python_build_directory):
                 python("setup.py", "install", "--prefix", prefix)
 
     def setup_run_environment(self, env):
@@ -209,7 +272,8 @@ class Nektar(CMakePackage):
             ),
         )
         env.append_path(
-            "PYTHONPATH", os.path.abspath(os.path.join(self.spec.prefix, "build_tree"))
+            "PYTHONPATH",
+            os.path.abspath(os.path.join(self.spec.prefix, "build_tree")),
         )
 
     def setup_dependent_run_environment(self, env, dependent_spec):

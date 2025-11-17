@@ -1,4 +1,6 @@
+import spack
 from spack import *
+from spack.package import *
 
 
 def _get_pkg_versions(pkg_name):
@@ -6,7 +8,8 @@ def _get_pkg_versions(pkg_name):
     Equivalent to 'spack versions <pkg_name>' on the command line"""
     pkg_spec = spack.spec.Spec(pkg_name)
     spack_version = spack.spack_version_info
-    if spack_version[1] <= 20:
+
+    if spack_version[0] < 1 and spack_version[1] <= 20:
         pkg_cls = spack.repo.path.get_pkg_class(pkg_name)
     else:
         pkg_cls = spack.repo.PATH.get_pkg_class(pkg_name)

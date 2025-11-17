@@ -1,4 +1,9 @@
 from spack import *
+from spack.package import *
+
+if spack_version_info[0] >= 1:
+    from spack_repo.builtin.build_systems.cmake import CMakePackage
+
 import os
 import shutil
 
@@ -11,10 +16,11 @@ class NesoParticles(CMakePackage):
     git = "https://github.com/ExCALIBUR-NEPTUNE/NESO-Particles.git"
 
     version(
-        "0.8.0",
-        commit="be8806066ca168e2e899ddb02e65312d0598176c",
+        "0.9.0",
+        commit="33821ee086d8fad4bc6ba779e211ae373b68daad",
         preferred=True,
     )
+    version("0.8.0", commit="be8806066ca168e2e899ddb02e65312d0598176c")
     version("0.7.0", commit="ded8da83b1825d255735568e2b054d63ea6db7f9")
     version("0.6.0", commit="516af5c961e89c6abe1122325b470565a6af1646")
     version("0.5.0", commit="ba6750d429fe15bbec9b9c507b795cd3117b79b4")
@@ -42,6 +48,8 @@ class NesoParticles(CMakePackage):
         description="Builds with PETSc interfaces.",
     )
 
+    depends_on("c")
+    depends_on("cxx")
     depends_on("mpi", type=("build", "link", "run"))
 
     # Non-SYCL dependencies
