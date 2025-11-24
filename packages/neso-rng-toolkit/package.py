@@ -79,8 +79,12 @@ class NesoRngToolkit(CMakePackage):
             args.append("-DNESO_RNG_TOOLKIT_REQUIRE_ONEMKL=ON")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_CURAND=OFF")
 
-        if "+curand" in self.spec:
+        elif "+curand" in self.spec:
             args.append("-DNESO_RNG_TOOLKIT_REQUIRE_CURAND=ON")
+            args.append("-DNESO_RNG_TOOLKIT_ENABLE_ONEMKL=OFF")
+
+        else:
+            args.append("-DNESO_RNG_TOOLKIT_ENABLE_CURAND=OFF")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_ONEMKL=OFF")
 
         return args
