@@ -13,6 +13,7 @@ from spack.package import *
 if spack_version_info[0] >= 1:
     from spack_repo.builtin.build_systems.cmake import CMakePackage
     from spack_repo.builtin.build_systems.cuda import CudaPackage
+    from spack_repo.builtin.build_systems.rocm import ROCmPackage
 
     import spack
     from spack.llnl.util import filesystem
@@ -35,10 +36,14 @@ CUDA backend with cuda compiled via LLVM, cuda_arch should be specified:
 CUDA backend with cuda compiled via nvhpc, no LLVM required, does require nvhpc:
     spack install neso.adaptivecpp compilationflow=cudanvcxx
 
-ACPP generic backend that performs JIT compilation via LLVM, optionally with CUDA support:
+ACPP generic backend that performs JIT compilation via LLVM, optionally with
+CUDA support or ROCm support:
     spack install neso.adaptivecpp compilationflow=generic
     spack install neso.adaptivecpp compilationflow=generic +cuda
+    spack install neso.adaptivecpp compilationflow=generic +rocm
 
+ROCm backend through HIP.
+    spack install neso.adaptivecpp compilationflow=hip
 """
 
 
@@ -92,6 +97,7 @@ class Adaptivecpp(CMakePackage):
             "cudallvm",
             "cudanvcxx",
             "generic",
+            "hip",
         ),
         description="Specify the default compilation workflow which this install will use for all translation units. Setting this variant will automatically select other variants as needed. For cuda compilation flows the CUDA architecture should be set with, e.g. 'cuda_arch=80'. The cudallvm flow requires that cuda_arch is set. The generic workflow can be host only or provide cuda support when +cuda is specified.",
         multi=False,
@@ -109,6 +115,19 @@ class Adaptivecpp(CMakePackage):
         multi=False,
     )
     conflicts("cuda_arch=none", when="compilationflow=cudallvm")
+
+    default_amdgpu_target = "none"
+    amdgpu_targets = tuple(
+        [default_amdgpu_target] + list(ROCmPackage.amdgpu_targets)
+    )
+    variant(
+        "amdgpu_target",
+        default=default_amdgpu_target,
+        values=amdgpu_targets,
+        description="Specify the AMD GPU architecture to use. Required, i.e. not 'none', for hip compilation flow.",
+    )
+    conflicts("amdgpu_target=none", when="compilationflow=hip")
+    conflicts("amdgpu_target=none", when="compilationflow=generic +rocm")
 
     variant(
         "cuda",
@@ -134,6 +153,11 @@ class Adaptivecpp(CMakePackage):
         "opencl",
         default=False,
         description="Enable OpenCL backend.",
+    )
+    variant(
+        "rocm",
+        default=False,
+        description="Enable ROCm support for the generic backend.",
     )
 
     depends_on("c")
@@ -204,6 +228,10 @@ class Adaptivecpp(CMakePackage):
         "llvm@15:20 +clang",
         when="@:25 compilationflow=cudallvm",
     )
+    depends_on(
+        "llvm@15:20 +clang",
+        when="@:25 compilationflow=hip",
+    )
 
     # LLVM has restrictions on which CUDA versions are supported.
     depends_on("cuda@11:11.8", when="+cuda -allow_unsupported_cuda ^llvm@16")
@@ -242,6 +270,12 @@ class Adaptivecpp(CMakePackage):
         "nvhpc-transitive@22.9:", when="compilationflow=cudanvcxx", type="run"
     )
     depends_on("opencl@3.0", when="+opencl")
+
+    # Dependencies for ROCm/HIP support.
+    depends_on("rocm-core", when="compilationflow=hip")
+    depends_on("rocm-core", when="compilationflow=generic +rocm")
+    depends_on("rocm-device-libs", when="compilationflow=hip")
+    depends_on("rocm-device-libs", when="compilationflow=generic +rocm")
 
     patch("allow-disable-find-cuda-23.10.0.patch", when="@23.10.0")
     patch("macos-non-apple-clang-24.02.0.patch", when="@24.02.0")
@@ -301,6 +335,13 @@ class Adaptivecpp(CMakePackage):
         else:
             return self.default_cuda_arch
 
+    @property
+    def amdgpu_target(self):
+        if "amdgpu_target" in self.spec.variants:
+            return self.spec.variants["amdgpu_target"].value
+        else:
+            return self.default_amdgpu_target
+
     def cmake_args(self):
 
         # As spack doesn't seem to populate mutlivalued variants with default
@@ -316,8 +357,6 @@ class Adaptivecpp(CMakePackage):
         args = [
             "-DACPP_VERSION_SUFFIX=spack",
             "-DWITH_CPU_BACKEND:Bool=TRUE",
-            # TODO: no ROCm stuff available in spack yet
-            "-DWITH_ROCM_BACKEND:Bool=FALSE",
             "-DWITH_STDPAR_COMPILER:Bool=FALSE",
         ]
 
@@ -331,6 +370,7 @@ class Adaptivecpp(CMakePackage):
         if "llvm" in spec:
             # prevent AdaptiveCPP's cmake to look for other LLVM installations
             # if the specified one isn't compatible
+            #   "-DACPP_COMPILER_FEATURE_PROFILE=minimal",
             args += [
                 "-DDISABLE_LLVM_VERSION_CHECK:Bool=TRUE",
             ]
@@ -421,6 +461,20 @@ class Adaptivecpp(CMakePackage):
             args += [
                 "-DWITH_SSCP_COMPILER:Bool=TRUE",
                 "-DWITH_OPENCL_BACKEND=ON",
+            ]
+
+        # These should be the compilation flows that involve the amd ROCm stack
+        if self.compilation_workflow == "hip" or "+rocm" in self.spec:
+            rocm_core_prefix = spec["rocm-core"].prefix
+            rocm_device_libs_prefix = spec["rocm-device-libs"].prefix
+            args += [
+                "-DROCM_PATH=" + rocm_core_prefix,
+                "-DROCM_DEVICE_LIBS_PATH=" + rocm_device_libs_prefix,
+                "-DWITH_ROCM_BACKEND=ON",
+            ]
+        else:
+            args += [
+                "-DWITH_ROCM_BACKEND:Bool=FALSE",
             ]
 
         return args
@@ -524,6 +578,11 @@ class Adaptivecpp(CMakePackage):
             elif self.compilation_workflow == "cudanvcxx":
                 cuda_arch = ":cc" + self.cuda_arch
 
+        amdgpu_target = ""
+        if self.amdgpu_target != "none":
+            if self.compilation_workflow == "hip":
+                amdgpu_target = ":" + self.amdgpu_target
+
         # Populate the default-target in the config file with the compilation
         # flow which was chosen.
         map_variant_to_target = {
@@ -532,6 +591,7 @@ class Adaptivecpp(CMakePackage):
             "cudallvm": "cuda" + cuda_arch,
             "cudanvcxx": "cuda-nvcxx" + cuda_arch,
             "generic": "generic",
+            "hip": "hip" + amdgpu_target,
         }
         default_targets = "default-targets"
         if default_targets in config:
