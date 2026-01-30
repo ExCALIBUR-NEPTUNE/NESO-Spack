@@ -43,7 +43,7 @@ CUDA support or ROCm support:
     spack install neso.adaptivecpp compilationflow=generic +rocm
 
 ROCm backend through HIP.
-    spack install neso.adaptivecpp compilationflow=hip
+    spack install neso.adaptivecpp compilationflow=hip amdgpu_target=gfx942
 """
 
 
@@ -99,7 +99,7 @@ class Adaptivecpp(CMakePackage):
             "generic",
             "hip",
         ),
-        description="Specify the default compilation workflow which this install will use for all translation units. Setting this variant will automatically select other variants as needed. For cuda compilation flows the CUDA architecture should be set with, e.g. 'cuda_arch=80'. The cudallvm flow requires that cuda_arch is set. The generic workflow can be host only or provide cuda support when +cuda is specified.",
+        description="Specify the default compilation workflow which this install will use for all translation units. Setting this variant will automatically select other variants as needed. For cuda compilation flows the CUDA architecture should be set with, e.g. 'cuda_arch=80'. The cudallvm flow requires that cuda_arch is set. The generic workflow can be host only or provide cuda support when +cuda is specified. For the hip compilation flow the AMD gpu architecture must be set, e.g. 'amdgpu_target=gfx942'.",
         multi=False,
     )
 
