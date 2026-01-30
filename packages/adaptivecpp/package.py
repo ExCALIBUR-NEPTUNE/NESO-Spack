@@ -127,7 +127,6 @@ class Adaptivecpp(CMakePackage):
         description="Specify the AMD GPU architecture to use. Required, i.e. not 'none', for hip compilation flow.",
     )
     conflicts("amdgpu_target=none", when="compilationflow=hip")
-    conflicts("amdgpu_target=none", when="compilationflow=generic +rocm")
 
     variant(
         "cuda",
@@ -466,7 +465,9 @@ class Adaptivecpp(CMakePackage):
         # These should be the compilation flows that involve the amd ROCm stack
         if self.compilation_workflow == "hip" or "+rocm" in self.spec:
             rocm_core_prefix = spec["rocm-core"].prefix
-            rocm_device_libs_prefix = spec["rocm-device-libs"].prefix
+            rocm_device_libs_prefix = (
+                spec["rocm-device-libs"].prefix + "/amdgcn/bitcode"
+            )
             args += [
                 "-DROCM_PATH=" + rocm_core_prefix,
                 "-DROCM_DEVICE_LIBS_PATH=" + rocm_device_libs_prefix,
