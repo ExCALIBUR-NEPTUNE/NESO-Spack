@@ -275,6 +275,8 @@ class Adaptivecpp(CMakePackage):
     depends_on("rocm-core", when="compilationflow=generic +rocm")
     depends_on("rocm-device-libs", when="compilationflow=hip")
     depends_on("rocm-device-libs", when="compilationflow=generic +rocm")
+    depends_on("hip", when="compilationflow=hip")
+    depends_on("hip", when="compilationflow=generic +rocm")
 
     patch("allow-disable-find-cuda-23.10.0.patch", when="@23.10.0")
     patch("macos-non-apple-clang-24.02.0.patch", when="@24.02.0")
