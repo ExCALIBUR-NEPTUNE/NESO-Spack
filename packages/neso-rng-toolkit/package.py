@@ -41,7 +41,7 @@ class NesoRngToolkit(CMakePackage):
     variant(
         "platformsearch",
         default=True,
-        description="Explicitly disables searching for platforms which are not C++ stdlib.",
+        description="Explicitly enables searching for platforms which are not C++ stdlib. Disabling this variant will disable searching for an appropriate platform based on SYCL implementation.",
     )
     conflicts("+onemkl", when="+curand")
     conflicts("+onemkl", when="+hiprand")
