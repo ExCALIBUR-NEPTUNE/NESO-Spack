@@ -74,27 +74,27 @@ class NesoRngToolkit(CMakePackage):
     )
     depends_on(
         "cuda",
-        when="^adaptivecpp compilationflow=cudallvm",
+        when="+platformsearch ^adaptivecpp compilationflow=cudallvm",
         type=("build", "link", "run"),
     )
     depends_on(
         "cuda",
-        when="^adaptivecpp compilationflow=cudanvcxx",
+        when="+platformsearch ^adaptivecpp compilationflow=cudanvcxx",
         type=("build", "link", "run"),
     )
     depends_on(
         "cuda",
-        when="^adaptivecpp compilationflow=generic +cuda",
+        when="+platformsearch ^adaptivecpp compilationflow=generic +cuda",
         type=("build", "link", "run"),
     )
     depends_on(
         "hiprand +rocm",
-        when="^adaptivecpp compilationflow=generic +rocm",
+        when="+platformsearch ^adaptivecpp compilationflow=generic +rocm",
         type=("build", "link", "run"),
     )
     depends_on(
         "hiprand +rocm",
-        when="^adaptivecpp compilationflow=hip",
+        when="+platformsearch ^adaptivecpp compilationflow=hip",
         type=("build", "link", "run"),
     )
 
