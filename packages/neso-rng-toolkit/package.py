@@ -38,6 +38,11 @@ class NesoRngToolkit(CMakePackage):
         default=False,
         description="Enables the hipRAND RNG as a required platform. Disables other platforms.",
     )
+    variant(
+        "platformsearch",
+        default=True,
+        description="Explicitly disables searching for platforms which are not C++ stdlib.",
+    )
     conflicts("+onemkl", when="+curand")
     conflicts("+onemkl", when="+hiprand")
     conflicts("+curand", when="+hiprand")
@@ -67,29 +72,77 @@ class NesoRngToolkit(CMakePackage):
         when="^dpcpp",
         type=("build", "link", "run"),
     )
+    depends_on(
+        "cuda",
+        when="^adaptivecpp compilationflow=cudallvm",
+        type=("build", "link", "run"),
+    )
+    depends_on(
+        "cuda",
+        when="^adaptivecpp compilationflow=cudanvcxx",
+        type=("build", "link", "run"),
+    )
+    depends_on(
+        "cuda",
+        when="^adaptivecpp compilationflow=generic +cuda",
+        type=("build", "link", "run"),
+    )
+    depends_on(
+        "hiprand +rocm",
+        when="^adaptivecpp compilationflow=generic +rocm",
+        type=("build", "link", "run"),
+    )
+    depends_on(
+        "hiprand +rocm",
+        when="^adaptivecpp compilationflow=hip",
+        type=("build", "link", "run"),
+    )
 
     def cmake_args(self):
         args = []
 
-        # If these variants were explicitly specified then we add the CMake
-        # flags which make the discovery of the corresponding platform
-        # mandatory and disable the other platforms.
-        if "+onemkl" in self.spec:
+        platformsearch = ("+platformsearch" in self.spec) and not (
+            "^adaptivecpp compilationflow=omplibraryonly" in self.spec
+            or "^adaptivecpp compilationflow=ompaccelerated" in self.spec
+        )
+        use_onemkl = ("+onemkl" in self.spec) or (
+            platformsearch and ("^dpcpp" in self.spec)
+        )
+        use_curand = ("+curand" in self.spec) or (
+            platformsearch
+            and (
+                "^adaptivecpp compilationflow=cudanvcxx" in self.spec
+                or "^adaptivecpp compilationflow=cudallvm" in self.spec
+                or "^adaptivecpp compilationflow=generic +cuda" in self.spec
+            )
+        )
+        use_hiprand = ("+hiprand" in self.spec) or (
+            platformsearch
+            and (
+                "^adaptivecpp compilationflow=generic +rocm" in self.spec
+                or "^adaptivecpp compilationflow=hip" in self.spec
+            )
+        )
+
+        # If these variants were explicitly specified or expected then we add
+        # the CMake flags which make the discovery of the corresponding
+        # platform mandatory and disable the other platforms.
+        if use_onemkl:
             args.append("-DNESO_RNG_TOOLKIT_REQUIRE_ONEMKL=ON")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_CURAND=OFF")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_HIPRAND=OFF")
 
-        elif "+curand" in self.spec:
+        elif use_curand:
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_ONEMKL=OFF")
             args.append("-DNESO_RNG_TOOLKIT_REQUIRE_CURAND=ON")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_HIPRAND=OFF")
 
-        elif "+hiprand" in self.spec:
+        elif use_hiprand:
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_ONEMKL=OFF")
             args.append("-DNESO_RNG_TOOLKIT_REQUIRE_CURAND=OFF")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_HIPRAND=ON")
 
-        else:
+        if not platformsearch:
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_ONEMKL=OFF")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_CURAND=OFF")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_HIPRAND=OFF")
