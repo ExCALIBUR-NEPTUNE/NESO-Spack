@@ -105,6 +105,7 @@ class NesoRngToolkit(CMakePackage):
         platformsearch = ("+platformsearch" in self.spec) and not (
             "^adaptivecpp compilationflow=omplibraryonly" in self.spec
             or "^adaptivecpp compilationflow=ompaccelerated" in self.spec
+            or "^adaptivecpp compilationflow=generic ~cuda ~rocm" in self.spec
         )
 
         use_onemkl = ("+onemkl" in self.spec) or (
