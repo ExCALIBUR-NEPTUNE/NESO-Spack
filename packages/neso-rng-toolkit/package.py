@@ -45,6 +45,7 @@ class NesoRngToolkit(CMakePackage):
     )
     conflicts("+onemkl", when="+curand")
     conflicts("+onemkl", when="+hiprand")
+    conflicts("+onemkl", when="^adaptivecpp")
     conflicts("+curand", when="+hiprand")
 
     # Depend on a sycl implementation.
