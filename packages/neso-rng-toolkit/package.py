@@ -106,10 +106,8 @@ class NesoRngToolkit(CMakePackage):
             or "^adaptivecpp compilationflow=ompaccelerated" in self.spec
         )
 
-        use_onemkl = (
-            ("+onemkl" in self.spec)
-            or platformsearch
-            and ("^dpcpp" in self.spec)
+        use_onemkl = ("+onemkl" in self.spec) or (
+            platformsearch and ("^dpcpp" in self.spec)
         )
 
         use_curand = ("+curand" in self.spec) or (
