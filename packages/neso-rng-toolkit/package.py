@@ -144,7 +144,7 @@ class NesoRngToolkit(CMakePackage):
             args.append("-DNESO_RNG_TOOLKIT_REQUIRE_CURAND=OFF")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_HIPRAND=ON")
 
-        if not platformsearch:
+        else:
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_ONEMKL=OFF")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_CURAND=OFF")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_HIPRAND=OFF")
