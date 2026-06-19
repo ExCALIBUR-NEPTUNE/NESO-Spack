@@ -20,7 +20,6 @@ class NesoRngToolkit(CMakePackage):
 
     version("working", branch="main")
     version("main", branch="main", preferred=True)
-    version("test", commit="582db42f3f8fdfdee9e0b61cc937b07d65415968")
     version("0.1.0", commit="9fe3d25bd72bab535dba51541a36f1dc14404075")
 
     variant(
