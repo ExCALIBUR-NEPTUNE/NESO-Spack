@@ -19,7 +19,8 @@ class NesoRngToolkit(CMakePackage):
     git = "https://github.com/ExCALIBUR-NEPTUNE/NESO-RNG-Toolkit.git"
 
     version("working", branch="main")
-    version("main", branch="main")
+    version("main", branch="main", preferred=True)
+    version("0.1.0", commit="9fe3d25bd72bab535dba51541a36f1dc14404075")
 
     variant(
         "onemkl",
@@ -31,7 +32,20 @@ class NesoRngToolkit(CMakePackage):
         default=False,
         description="Enables the cuRAND RNG as a required platform. Disables other platforms.",
     )
+    variant(
+        "hiprand",
+        default=False,
+        description="Enables the hipRAND RNG as a required platform. Disables other platforms.",
+    )
+    variant(
+        "platformsearch",
+        default=True,
+        description="Explicitly enables searching for platforms which are not C++ stdlib. Disabling this variant will disable searching for an appropriate platform based on SYCL implementation.",
+    )
     conflicts("+onemkl", when="+curand")
+    conflicts("+onemkl", when="+hiprand")
+    conflicts("+onemkl", when="^adaptivecpp")
+    conflicts("+curand", when="+hiprand")
 
     # Depend on a sycl implementation.
     depends_on("c")
@@ -39,6 +53,7 @@ class NesoRngToolkit(CMakePackage):
     depends_on("sycl", type=("build", "link", "run"))
     depends_on("dpcpp", when="+onemkl", type=("build", "link", "run"))
     depends_on("cuda", when="+curand", type=("build", "link", "run"))
+    depends_on("hiprand +rocm", when="+hiprand", type=("build", "link", "run"))
     depends_on("googletest@1.10.0:", type=("build", "link", "run"))
     depends_on("cmake@3.24:", type="build")
 
@@ -57,34 +72,82 @@ class NesoRngToolkit(CMakePackage):
         when="^dpcpp",
         type=("build", "link", "run"),
     )
-
     depends_on(
         "cuda",
-        when="^adaptivecpp compilationflow=cudallvm",
+        when="+platformsearch ^adaptivecpp compilationflow=cudallvm",
         type=("build", "link", "run"),
     )
     depends_on(
         "cuda",
-        when="^adaptivecpp compilationflow=cudanvcxx",
+        when="+platformsearch ^adaptivecpp compilationflow=cudanvcxx",
+        type=("build", "link", "run"),
+    )
+    depends_on(
+        "cuda",
+        when="+platformsearch ^adaptivecpp compilationflow=generic +cuda",
+        type=("build", "link", "run"),
+    )
+    depends_on(
+        "hiprand +rocm",
+        when="+platformsearch ^adaptivecpp compilationflow=generic +rocm",
+        type=("build", "link", "run"),
+    )
+    depends_on(
+        "hiprand +rocm",
+        when="+platformsearch ^adaptivecpp compilationflow=hip",
         type=("build", "link", "run"),
     )
 
     def cmake_args(self):
         args = []
 
-        # If these variants were explicitly specified then we add the CMake
-        # flags which make the discovery of the corresponding platform
-        # mandatory and disable the other platforms.
-        if "+onemkl" in self.spec:
+        platformsearch = ("+platformsearch" in self.spec) and not (
+            "^adaptivecpp compilationflow=omplibraryonly" in self.spec
+            or "^adaptivecpp compilationflow=ompaccelerated" in self.spec
+            or "^adaptivecpp compilationflow=generic ~cuda ~rocm" in self.spec
+        )
+
+        use_onemkl = ("+onemkl" in self.spec) or (
+            platformsearch and ("^dpcpp" in self.spec)
+        )
+
+        use_curand = ("+curand" in self.spec) or (
+            platformsearch
+            and (
+                "^adaptivecpp compilationflow=cudanvcxx" in self.spec
+                or "^adaptivecpp compilationflow=cudallvm" in self.spec
+                or "^adaptivecpp compilationflow=generic +cuda" in self.spec
+            )
+        )
+        use_hiprand = ("+hiprand" in self.spec) or (
+            platformsearch
+            and (
+                "^adaptivecpp compilationflow=generic +rocm" in self.spec
+                or "^adaptivecpp compilationflow=hip" in self.spec
+            )
+        )
+
+        # If these variants were explicitly specified or expected then we add
+        # the CMake flags which make the discovery of the corresponding
+        # platform mandatory and disable the other platforms.
+        if use_onemkl:
             args.append("-DNESO_RNG_TOOLKIT_REQUIRE_ONEMKL=ON")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_CURAND=OFF")
+            args.append("-DNESO_RNG_TOOLKIT_ENABLE_HIPRAND=OFF")
 
-        elif "+curand" in self.spec:
-            args.append("-DNESO_RNG_TOOLKIT_REQUIRE_CURAND=ON")
+        elif use_curand:
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_ONEMKL=OFF")
+            args.append("-DNESO_RNG_TOOLKIT_REQUIRE_CURAND=ON")
+            args.append("-DNESO_RNG_TOOLKIT_ENABLE_HIPRAND=OFF")
+
+        elif use_hiprand:
+            args.append("-DNESO_RNG_TOOLKIT_ENABLE_ONEMKL=OFF")
+            args.append("-DNESO_RNG_TOOLKIT_REQUIRE_CURAND=OFF")
+            args.append("-DNESO_RNG_TOOLKIT_ENABLE_HIPRAND=ON")
 
         else:
-            args.append("-DNESO_RNG_TOOLKIT_ENABLE_CURAND=OFF")
             args.append("-DNESO_RNG_TOOLKIT_ENABLE_ONEMKL=OFF")
+            args.append("-DNESO_RNG_TOOLKIT_ENABLE_CURAND=OFF")
+            args.append("-DNESO_RNG_TOOLKIT_ENABLE_HIPRAND=OFF")
 
         return args

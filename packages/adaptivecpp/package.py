@@ -273,10 +273,21 @@ class Adaptivecpp(CMakePackage):
     # Dependencies for ROCm/HIP support.
     depends_on("rocm-core", when="compilationflow=hip")
     depends_on("rocm-core", when="compilationflow=generic +rocm")
-    depends_on("rocm-device-libs", when="compilationflow=hip")
-    depends_on("rocm-device-libs", when="compilationflow=generic +rocm")
-    depends_on("hip", when="compilationflow=hip")
-    depends_on("hip", when="compilationflow=generic +rocm")
+
+    # We need the device libs either from llvm-amdgpu or rocm-device-libs.
+    depends_on("llvm-amdgpu", when="compilationflow=hip")
+    depends_on("llvm-amdgpu", when="compilationflow=generic +rocm")
+    depends_on(
+        "rocm-device-libs",
+        when="compilationflow=hip ^llvm-amdgpu~rocm-device-libs",
+    )
+    depends_on(
+        "rocm-device-libs",
+        when="compilationflow=generic +rocm ^llvm-amdgpu~rocm-device-libs",
+    )
+
+    depends_on("hip +rocm", when="compilationflow=hip")
+    depends_on("hip +rocm", when="compilationflow=generic +rocm")
 
     patch("allow-disable-find-cuda-23.10.0.patch", when="@23.10.0")
     patch("macos-non-apple-clang-24.02.0.patch", when="@24.02.0")
@@ -467,9 +478,17 @@ class Adaptivecpp(CMakePackage):
         # These should be the compilation flows that involve the amd ROCm stack
         if self.compilation_workflow == "hip" or "+rocm" in self.spec:
             rocm_core_prefix = spec["rocm-core"].prefix
-            rocm_device_libs_prefix = (
-                spec["rocm-device-libs"].prefix + "/amdgcn/bitcode"
-            )
+
+            rocm_device_libs_prefix = None
+            if self.spec.satisfies("^rocm-device-libs"):
+                rocm_device_libs_prefix = spec[
+                    "rocm-device-libs"
+                ].prefix.amdgcn.bitcode
+            else:
+                rocm_device_libs_prefix = spec[
+                    "llvm-amdgpu"
+                ].prefix.amdgcn.bitcode
+
             args += [
                 "-DROCM_PATH=" + rocm_core_prefix,
                 "-DROCM_DEVICE_LIBS_PATH=" + rocm_device_libs_prefix,
