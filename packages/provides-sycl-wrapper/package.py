@@ -16,7 +16,7 @@ class ProvidesSyclWrapper(Package):
     variant(
         "enable",
         default=False,
-        description="By specifying +compiler_provides_sycl the user guarantees that the spack cxx compiler is a SYCL compiler.",
+        description="By specifying +enable the user guarantees that the spack cxx compiler is a SYCL compiler.",
         sticky=True,
     )
 
