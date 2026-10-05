@@ -13,7 +13,7 @@ if spack_version_info[0] >= 1:
     from spack_repo.builtin.build_systems.cmake import CMakePackage
 
     import spack
-    from spack.llnl.util import filesystem
+    from spack.util import filesystem
 else:
     from llnl.util import filesystem
 
