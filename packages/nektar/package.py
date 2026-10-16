@@ -12,10 +12,12 @@ import shutil
 if spack_version_info[0] >= 1:
     from spack_repo.builtin.build_systems.cmake import CMakePackage
 
-    import spack
+import spack
+
+if hasattr(spack.util.filesystem, "find"):
+    from spack.util import filesystem
+elif hasattr(spack.llnl.util.filesystem, "find"):
     from spack.llnl.util import filesystem
-else:
-    from llnl.util import filesystem
 
 
 class Nektar(CMakePackage):
@@ -170,7 +172,7 @@ class Nektar(CMakePackage):
     # Notionally py-setuputils can provide distutils but in practice this is
     # not working properly. Nekar++ 5.8 onwards has different python finding
     # cmake which might work fine with newer python releases.
-    # 
+    #
     # We could make @master use newer python releases but we risk the
     # "infinity" versions in downstream envs (NESO) using the new python whilst
     # the submodule commit they have is still 5.7 based. Once NESO is patched
