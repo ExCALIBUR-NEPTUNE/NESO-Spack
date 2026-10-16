@@ -96,9 +96,11 @@ from spack.package import *
 
 if spack_version_info[0] >= 1:
     from spack_repo.builtin.build_systems.generic import Package
+
+if hasattr(spack.util.filesystem, "find"):
+    from spack.util import filesystem
+elif hasattr(spack.llnl.util.filesystem, "find"):
     from spack.llnl.util import filesystem
-else:
-    from llnl.util import filesystem
 
 
 def _get_pkg_versions(pkg_name):
