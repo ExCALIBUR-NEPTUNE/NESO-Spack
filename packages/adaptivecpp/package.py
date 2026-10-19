@@ -15,10 +15,12 @@ if spack_version_info[0] >= 1:
     from spack_repo.builtin.build_systems.cuda import CudaPackage
     from spack_repo.builtin.build_systems.rocm import ROCmPackage
 
-    import spack
+import spack
+
+if hasattr(spack.util.filesystem, "find"):
+    from spack.util import filesystem
+elif hasattr(spack.llnl.util.filesystem, "find"):
     from spack.llnl.util import filesystem
-else:
-    from llnl.util import filesystem
 
 """
 Installing with a specified compilationflow variant will create an AdaptiveCpp
